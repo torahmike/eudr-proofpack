@@ -1,0 +1,50 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "eudr-proofpack",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-07-05",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "APP_ENV": "local",
+    "APP_URL": "http://localhost:5173",
+    "SESSION_TTL_SECONDS": "604800"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "eudr-proofpack-db",
+      "database_id": "replace-with-d1-database-id",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "PROOF_PACK_FILES",
+      "bucket_name": "eudr-proofpack-files"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "ZIP_EXPORT_QUEUE",
+        "queue": "eudr-proofpack-zip-exports"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "eudr-proofpack-zip-exports",
+        "max_batch_size": 10,
+        "max_batch_timeout": 30
+      }
+    ]
+  }
+}

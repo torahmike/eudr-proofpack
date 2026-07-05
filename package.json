@@ -1,0 +1,36 @@
+{
+  "name": "eudr-proofpack",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build && wrangler deploy --dry-run --outdir .wrangler/dry-run",
+    "preview": "vite preview --host 127.0.0.1",
+    "types": "wrangler types",
+    "db:migrate:local": "wrangler d1 migrations apply eudr-proofpack-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply eudr-proofpack-db --remote",
+    "db:seed": "tsx scripts/seed.ts",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.9.0",
+    "@types/node": "^26.1.0",
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.3.7",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "wrangler": "^4.24.0"
+  }
+}
