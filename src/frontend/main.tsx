@@ -217,7 +217,8 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
 }
 
 function LoginPage() {
-  const [email, setEmail] = useState("demo@proofpack.dev");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   async function submit(event: FormEvent) {
@@ -225,7 +226,7 @@ function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      await api("/api/auth/login", { method: "POST", body: { email, organizationName: "Demo Roasters" } });
+      await api("/api/auth/login", { method: "POST", body: { email, password } });
       window.location.href = "/app";
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Login failed");
@@ -238,9 +239,11 @@ function LoginPage() {
       <form onSubmit={submit} className="w-full max-w-md rounded-lg border border-ink/10 bg-white p-6 shadow-soft">
         <ShieldCheck className="h-8 w-8 text-leaf" />
         <h1 className="mt-4 text-2xl font-semibold">Sign in to EUDR ProofPack</h1>
-        <p className="mt-2 text-sm text-ink/65">Use demo mode locally or enter any email to create an MVP account.</p>
+        <p className="mt-2 text-sm text-ink/65">Enter an email and a 12+ character password. New emails create an account; existing emails must use their password.</p>
         <label className="mt-5 block text-sm font-medium">Email</label>
         <input value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-md border border-ink/15 px-3 py-3" type="email" />
+        <label className="mt-4 block text-sm font-medium">Password</label>
+        <input value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-md border border-ink/15 px-3 py-3" type="password" minLength={12} autoComplete="current-password" />
         {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
         <button className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-leaf px-4 py-3 font-medium text-white" disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Continue
@@ -464,7 +467,7 @@ function DocumentsPanel({ pack, onChanged }: { pack: ProofPack; onChanged: () =>
     const form = new FormData(event.currentTarget);
     form.set("document_type", type);
     form.set("notes", notes);
-    await fetch(`/api/proof-packs/${pack.id}/documents`, { method: "POST", body: form });
+    await uploadForm(`/api/proof-packs/${pack.id}/documents`, form);
     event.currentTarget.reset();
     await onChanged();
   }
@@ -561,7 +564,7 @@ function SupplierDocuments({ token, documents, onChanged }: { token: string; doc
     const form = new FormData(event.currentTarget);
     form.set("document_type", type);
     form.set("notes", notes);
-    await fetch(`/supplier/${token}/upload`, { method: "POST", body: form });
+    await uploadForm(`/supplier/${token}/upload`, form);
     event.currentTarget.reset();
     await onChanged();
   }
@@ -630,8 +633,8 @@ function LinkBox({ title, url, onGenerate }: { title: string; url: string; onGen
   return <div className="rounded-md border border-ink/10 p-4"><h3 className="font-semibold">{title}</h3>{url ? <a className="mt-2 flex items-center gap-2 break-all text-sm text-leaf" href={url}><LinkIcon className="h-4 w-4" /> {url}</a> : <p className="mt-2 text-sm text-ink/55">No token generated yet.</p>}<button onClick={onGenerate} className="mt-4 rounded-md border border-ink/15 px-3 py-2 text-sm">Generate link</button></div>;
 }
 
-function Metric({ icon, label, value }: { icon: React.ReactElement; label: string; value: number }) {
-  return <div className="rounded-lg border border-ink/10 bg-white p-4">{React.cloneElement(icon, { className: "h-5 w-5 text-leaf" })}<p className="mt-3 text-2xl font-semibold">{value}</p><p className="text-sm text-ink/55">{label}</p></div>;
+function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
+  return <div className="rounded-lg border border-ink/10 bg-white p-4"><span className="block h-5 w-5 text-leaf">{icon}</span><p className="mt-3 text-2xl font-semibold">{value}</p><p className="text-sm text-ink/55">{label}</p></div>;
 }
 
 function StatusBadge({ status }: { status: Status }) {
@@ -669,6 +672,12 @@ function useLoad<T>(path: string) {
     void reload();
   }, [path]);
   return { data, error, reload };
+}
+
+async function uploadForm(path: string, form: FormData): Promise<void> {
+  const response = await fetch(path, { method: "POST", body: form });
+  const data = (await response.json().catch(() => ({}))) as { error?: string };
+  if (!response.ok) throw new Error(data.error ?? "Upload failed");
 }
 
 async function api<T = unknown>(path: string, options: { method?: string; body?: unknown } = {}): Promise<T> {

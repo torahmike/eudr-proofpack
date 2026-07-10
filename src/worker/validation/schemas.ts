@@ -6,9 +6,11 @@ export const riskLevels = ["low", "medium", "high", "unknown"] as const;
 
 const optionalText = z.string().trim().max(2000).optional().nullable();
 const email = z.string().trim().email().max(320);
+const password = z.string().min(12).max(256);
 
 export const loginSchema = z.object({
   email,
+  password,
   name: z.string().trim().max(120).optional(),
   organizationName: z.string().trim().max(160).optional(),
 });
@@ -62,7 +64,7 @@ export const plotSchema = z.object({
 });
 
 export const documentMetaSchema = z.object({
-  document_type: z.string().trim().min(1).max(120),
+  document_type: z.enum(["supplier_declaration", "land_use_evidence", "harvest_records", "chain_of_custody", "transport_docs", "certification", "other"]),
   notes: optionalText,
 });
 

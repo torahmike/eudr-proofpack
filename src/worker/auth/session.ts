@@ -15,11 +15,11 @@ export function getCookie(request: Request, name: string): string | null {
 }
 
 export function sessionCookie(sessionId: string, maxAgeSeconds: number): string {
-  return `${cookieName}=${encodeURIComponent(sessionId)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}`;
+  return `${cookieName}=${encodeURIComponent(sessionId)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAgeSeconds}`;
 }
 
 export function clearSessionCookie(): string {
-  return `${cookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  return `${cookieName}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
 
 export async function requireSession(request: Request, env: Env): Promise<SessionContext | Response> {
@@ -29,11 +29,30 @@ export async function requireSession(request: Request, env: Env): Promise<Sessio
   return session ?? json({ error: "Invalid or expired session" }, 401);
 }
 
+export function securityHeaders(): Record<string, string> {
+  return {
+    "Content-Security-Policy": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+  };
+}
+
+export function withSecurityHeaders(response: Response): Response {
+  const headers = new Headers(response.headers);
+  for (const [key, value] of Object.entries(securityHeaders())) headers.set(key, value);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
 export function json(body: unknown, status = 200, headers?: HeadersInit): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      ...securityHeaders(),
       ...headers,
     },
   });

@@ -2,6 +2,9 @@ export interface UserRow {
   id: string;
   email: string;
   name: string | null;
+  password_hash: string | null;
+  password_salt: string | null;
+  password_updated_at: string | null;
   created_at: string;
 }
 
@@ -10,6 +13,15 @@ export interface OrganizationRow {
   name: string;
   owner_user_id: string;
   created_at: string;
+}
+
+export type MemberRole = "owner" | "admin" | "member" | "viewer";
+
+export interface OrganizationMemberRow {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  role: MemberRole;
 }
 
 export interface ProofPackRow {
@@ -85,10 +97,14 @@ export interface ActivityEventRow {
   actor_user_id: string | null;
   event_type: string;
   message: string;
+  ip_address: string | null;
+  user_agent: string | null;
   created_at: string;
 }
 
 export interface SessionContext {
+  sessionId: string;
   user: UserRow;
   organization: OrganizationRow;
+  membership: OrganizationMemberRow;
 }
