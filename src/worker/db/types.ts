@@ -5,6 +5,8 @@ export interface UserRow {
   password_hash: string | null;
   password_salt: string | null;
   password_updated_at: string | null;
+  email_verified_at: string | null;
+  email_verification_sent_at: string | null;
   created_at: string;
 }
 

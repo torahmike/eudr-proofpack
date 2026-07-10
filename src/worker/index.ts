@@ -1,10 +1,12 @@
 import { ZodError } from "zod";
+import { createAndSendVerification, shouldRequireVerifiedEmail, verificationDto, verifyEmailToken } from "./auth/emailVerification";
 import { clearSessionCookie, isResponse, json, requireSession, secureToken, securityHeaders, sessionCookie, withSecurityHeaders } from "./auth/session";
 import { addActivity, checkRateLimit, ensurePackAccess, getDocuments, getPackRole, getPlots, getRecentActivity, listProofPacks, revokeSession } from "./db/queries";
 import type { DocumentRow, MemberRole, PlotRow, ProofPackRow, UserRow } from "./db/types";
 import { computeReadiness } from "./routes/score";
 import { storeUpload } from "./storage/files";
-import { documentMetaSchema, loginSchema, plotSchema, proofPackCreateSchema, proofPackPatchSchema, supplierUpdateSchema } from "./validation/schemas";
+import { buildProofPackZip } from "./export/zip";
+import { documentMetaSchema, loginSchema, plotSchema, proofPackCreateSchema, proofPackPatchSchema, supplierUpdateSchema, verifyEmailSchema } from "./validation/schemas";
 
 interface ZipExportMessage {
   proofPackId: string;
@@ -49,7 +51,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   const path = url.pathname;
   if (mutatingMethods.has(method) && !isAllowedOrigin(request, env)) return json({ error: "Invalid request origin" }, 403);
 
-  if (method === "POST" && path === "/api/auth/login") return login(request, env);
+  if (method === "POST" && path === "/api/auth/login") return login(request, env, ctx);
+  if (method === "POST" && path === "/api/auth/verify-email") return verifyEmail(request, env);
   if (method === "POST" && path === "/api/auth/logout") {
     const session = await requireSession(request, env);
     if (!isResponse(session)) await revokeSession(env, session.sessionId);
@@ -64,10 +67,14 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   const session = await requireSession(request, env);
   if (isResponse(session)) return session;
 
+  if (method === "POST" && path === "/api/auth/resend-verification") return resendVerification(request, env, session.user);
+
+  if (shouldRequireVerifiedEmail(env) && !session.user.email_verified_at && path !== "/api/me") return json({ error: "Email verification required" }, 403);
+
   if (method === "GET" && path === "/api/me") {
     const packs = await listProofPacks(env, session.organization.id);
     const activity = await getRecentActivity(env, session.organization.id);
-    return json({ user: userDto(session.user), organization: session.organization, membership: session.membership, stats: buildStats(packs), activity });
+    return json({ user: userDto(session.user), verification: verificationDto(session.user), organization: session.organization, membership: session.membership, stats: buildStats(packs), activity });
   }
 
   if (method === "GET" && path === "/api/proof-packs") {
@@ -108,6 +115,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   const exportMatch = path.match(/^\/api\/proof-packs\/([^/]+)\/export$/);
   if (exportMatch && method === "GET") return exportPack(request, env, session.user.id, exportMatch[1]);
 
+  const zipExportMatch = path.match(/^\/api\/proof-packs\/([^/]+)\/zip-export$/);
+  if (zipExportMatch && method === "GET") return exportZipPack(request, env, session.user.id, zipExportMatch[1]);
+
   const plotMatch = path.match(/^\/api\/plots\/([^/]+)$/);
   if (plotMatch && method === "PATCH") return patchPlot(request, env, session.user.id, session.membership.role, plotMatch[1]);
   if (plotMatch && method === "DELETE") return deleteByChild(request, env, session.user.id, session.membership.role, plotMatch[1], "plots");
@@ -120,16 +130,15 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     const packId = path.split("/")[3] ?? "";
     const pack = await ensurePackAccess(env, packId, session.user.id);
     if (!pack) return json({ error: "Not found" }, 404);
-    // TODO: Replace with a ZIP assembly Worker that streams R2 objects into an archive.
-    ctx.waitUntil(env.ZIP_EXPORT_QUEUE.send({ proofPackId: pack.id, requestedByUserId: session.user.id }));
-    await addActivity(env, pack.organization_id, pack.id, session.user.id, "export.zip_queued", "Queued ZIP export placeholder", request);
-    return json({ queued: true });
+    await addActivity(env, pack.organization_id, pack.id, session.user.id, "export.zip_ready", "Prepared ZIP export URL", request);
+    await Promise.resolve(ctx);
+    return json({ queued: false, url: `${env.APP_URL}/api/proof-packs/${pack.id}/zip-export` });
   }
 
   return json({ error: "Not found" }, 404);
 }
 
-async function login(request: Request, env: Env): Promise<Response> {
+async function login(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
   const identity = `${request.headers.get("CF-Connecting-IP") ?? "unknown"}:${request.headers.get("User-Agent") ?? "unknown"}`;
   if (!(await checkRateLimit(env, "auth.login", identity, 10, 900))) return json({ error: "Too many login attempts" }, 429);
 
@@ -160,7 +169,21 @@ async function login(request: Request, env: Env): Promise<Response> {
   const sessionId = secureToken();
   const ttl = Number.parseInt(env.SESSION_TTL_SECONDS, 10) || 604800;
   await env.DB.prepare(`INSERT INTO sessions (id, user_id, expires_at, ip_address, user_agent) VALUES (?, ?, datetime('now', ?), ?, ?)`).bind(sessionId, user.id, `+${ttl} seconds`, request.headers.get("CF-Connecting-IP"), request.headers.get("User-Agent")).run();
-  return json({ ok: true }, 200, { "Set-Cookie": sessionCookie(sessionId, ttl) });
+  const verification = user.email_verified_at ? verificationDto(user) : await createAndSendVerification(env, user, request);
+  await Promise.resolve(ctx);
+  return json({ ok: true, verification }, 200, { "Set-Cookie": sessionCookie(sessionId, ttl) });
+}
+
+async function verifyEmail(request: Request, env: Env): Promise<Response> {
+  const input = verifyEmailSchema.parse(await request.json());
+  const user = await verifyEmailToken(env, input.token);
+  return user ? json({ ok: true, verification: verificationDto(user) }) : json({ error: "Invalid or expired verification token" }, 400);
+}
+
+async function resendVerification(request: Request, env: Env, user: UserRow): Promise<Response> {
+  if (!(await checkRateLimit(env, "auth.verify_email", user.id, 5, 3600))) return json({ error: "Too many verification emails" }, 429);
+  const result = await createAndSendVerification(env, user, request);
+  return json({ verification: result });
 }
 
 async function enrichPack(env: Env, pack: ProofPackRow) {
@@ -383,8 +406,17 @@ function documentDto(document: DocumentRow) {
   };
 }
 
+async function exportZipPack(request: Request, env: Env, userId: string, proofPackId: string): Promise<Response> {
+  const pack = await ensurePackAccess(env, proofPackId, userId);
+  if (!pack) return json({ error: "Not found" }, 404);
+  const archive = await buildProofPackZip(env, pack);
+  await addActivity(env, pack.organization_id, pack.id, userId, "proof_pack.zip_exported", `Downloaded ZIP export${archive.skippedFiles.length ? " with missing files" : ""}`, request);
+  const body = archive.bytes.buffer.slice(archive.bytes.byteOffset, archive.bytes.byteOffset + archive.bytes.byteLength) as ArrayBuffer;
+  return new Response(body, { headers: { ...securityHeaders(), "Content-Type": "application/zip", "Cache-Control": "no-store", "Content-Disposition": `attachment; filename="${archive.filename}"` } });
+}
+
 function userDto(user: UserRow) {
-  return { id: user.id, email: user.email, name: user.name, created_at: user.created_at };
+  return { id: user.id, email: user.email, name: user.name, email_verified_at: user.email_verified_at, created_at: user.created_at };
 }
 
 function canWrite(role: MemberRole): boolean {
@@ -432,4 +464,8 @@ function timingSafeEqual(a: string, b: string): boolean {
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
+
+
+
+
 

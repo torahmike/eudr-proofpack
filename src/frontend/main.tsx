@@ -96,7 +96,8 @@ interface ProofPack {
 }
 
 interface MeResponse {
-  user: { email: string; name: string | null };
+  user: { email: string; name: string | null; email_verified_at?: string | null };
+  verification: { emailVerified: boolean; emailVerifiedAt: string | null };
   organization: { name: string };
   stats: { total: number; byStatus: Record<Status, number> };
   activity: { id: string; message: string; event_type: string; created_at: string }[];
@@ -119,6 +120,7 @@ function App() {
   if (path.startsWith("/share/")) return <SharePage token={path.split("/")[2] ?? ""} />;
   if (path.startsWith("/supplier/")) return <SupplierPortal token={path.split("/")[2] ?? ""} />;
   if (path === "/login") return <LoginPage />;
+  if (path === "/verify-email") return <VerifyEmailPage />;
   if (path === "/pricing") return <LandingPage pricingOnly />;
   if (path.startsWith("/app")) return <Dashboard />;
   return <LandingPage />;
@@ -253,12 +255,40 @@ function LoginPage() {
   );
 }
 
+function VerifyEmailPage() {
+  const [message, setMessage] = useState("Verifying your email...");
+  const [ok, setOk] = useState(false);
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get("token") ?? "";
+    if (!token) {
+      setMessage("Verification token is missing.");
+      return;
+    }
+    void api<{ ok: boolean }>("/api/auth/verify-email", { method: "POST", body: { token } })
+      .then(() => {
+        setOk(true);
+        setMessage("Email verified. You can return to your workspace.");
+      })
+      .catch((caught) => setMessage(caught instanceof Error ? caught.message : "Could not verify email"));
+  }, []);
+  return (
+    <main className="grid min-h-screen place-items-center bg-flax px-5 text-ink">
+      <div className="w-full max-w-md rounded-lg border border-ink/10 bg-white p-6 shadow-soft">
+        {ok ? <BadgeCheck className="h-8 w-8 text-leaf" /> : <ShieldCheck className="h-8 w-8 text-leaf" />}
+        <h1 className="mt-4 text-2xl font-semibold">Email verification</h1>
+        <p className="mt-2 text-sm text-ink/65">{message}</p>
+        <a href="/app" className="mt-5 inline-flex rounded-md bg-leaf px-4 py-3 text-white">Go to workspace</a>
+      </div>
+    </main>
+  );
+}
 function Dashboard() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [packs, setPacks] = useState<ProofPack[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [verificationMessage, setVerificationMessage] = useState("");
 
   async function load() {
     setLoading(true);
@@ -291,11 +321,29 @@ function Dashboard() {
     setSelectedId(data.proofPack.id);
   }
 
+  async function resendVerification() {
+    try {
+      const data = await api<{ verification: { message: string; verificationUrl?: string } }>("/api/auth/resend-verification", { method: "POST" });
+      setVerificationMessage(data.verification.verificationUrl ? `${data.verification.message}: ${data.verification.verificationUrl}` : data.verification.message);
+    } catch (caught) {
+      setVerificationMessage(caught instanceof Error ? caught.message : "Could not resend verification email");
+    }
+  }
+
   if (loading) return <Shell><LoadingState /></Shell>;
   if (error) return <Shell><ErrorState message={error} /></Shell>;
 
   return (
     <Shell>
+      {me && !me.verification.emailVerified && (
+        <div className="mb-5 rounded-md border border-clay/30 bg-clay/10 p-4 text-sm text-ink/75">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span><AlertTriangle className="mr-2 inline h-4 w-4 text-clay" /> Verify your email to unlock stricter production enforcement when enabled.</span>
+            <button onClick={resendVerification} className="rounded-md border border-ink/15 px-3 py-2">Resend verification</button>
+          </div>
+          {verificationMessage && <p className="mt-2 break-all text-ink/65">{verificationMessage}</p>}
+        </div>
+      )}
       <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
         <aside>
           <div className="rounded-lg border border-ink/10 bg-white p-5">
@@ -372,7 +420,8 @@ function PackEditor({ pack, onChanged }: { pack: ProofPack; onChanged: () => Pro
           </div>
           <div className="flex flex-wrap gap-2">
             <button onClick={() => patch({ status: "buyer_ready" })} className="rounded-md border border-ink/15 px-3 py-2 text-sm">Mark buyer ready</button>
-            <a href={`/api/proof-packs/${pack.id}/export`} className="rounded-md bg-ink px-3 py-2 text-sm text-white">Download summary</a>
+            <a href={`/api/proof-packs/${pack.id}/export`} className="rounded-md bg-ink px-3 py-2 text-sm text-white">Download JSON</a>
+            <a href={`/api/proof-packs/${pack.id}/zip-export`} className="rounded-md bg-leaf px-3 py-2 text-sm text-white">Download ZIP</a>
           </div>
         </div>
         <Progress value={pack.readiness.percentage} />
@@ -703,3 +752,4 @@ function labelize(value: string) {
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
+

@@ -17,7 +17,8 @@
   "vars": {
     "APP_ENV": "production",
     "APP_URL": "https://eudr-proofpack.torahmike.workers.dev",
-    "SESSION_TTL_SECONDS": "604800"
+    "SESSION_TTL_SECONDS": "604800",
+    "REQUIRE_VERIFIED_EMAIL": "false"
   },
   "d1_databases": [
     {
@@ -47,6 +48,45 @@
         "max_batch_timeout": 30
       }
     ]
+  },
+  "env": {
+    "staging": {
+      "name": "eudr-proofpack-staging",
+      "vars": {
+        "APP_ENV": "staging",
+        "APP_URL": "https://eudr-proofpack-staging.torahmike.workers.dev",
+        "SESSION_TTL_SECONDS": "604800",
+        "REQUIRE_VERIFIED_EMAIL": "false"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "eudr-proofpack-staging-db",
+          "database_id": "89cf7f72-2471-4d5b-b84c-5cd9822ed212",
+          "migrations_dir": "./migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "PROOF_PACK_FILES",
+          "bucket_name": "eudr-proofpack-staging-files"
+        }
+      ],
+      "queues": {
+        "producers": [
+          {
+            "binding": "ZIP_EXPORT_QUEUE",
+            "queue": "eudr-proofpack-staging-zip-exports"
+          }
+        ],
+        "consumers": [
+          {
+            "queue": "eudr-proofpack-staging-zip-exports",
+            "max_batch_size": 10,
+            "max_batch_timeout": 30
+          }
+        ]
+      }
+    }
   }
 }
-

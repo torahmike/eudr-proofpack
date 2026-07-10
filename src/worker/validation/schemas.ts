@@ -15,6 +15,10 @@ export const loginSchema = z.object({
   organizationName: z.string().trim().max(160).optional(),
 });
 
+export const verifyEmailSchema = z.object({
+  token: z.string().min(32).max(256),
+});
+
 export const proofPackCreateSchema = z.object({
   title: z.string().trim().min(2).max(180),
   commodity: z.enum(commodities).default("coffee"),
@@ -79,3 +83,4 @@ export const supplierUpdateSchema = proofPackPatchSchema.pick({
 });
 
 export type ProofPackPatch = z.infer<typeof proofPackPatchSchema>;
+
