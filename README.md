@@ -58,12 +58,21 @@ wrangler secret put RESEND_API_KEY
 wrangler secret put EMAIL_FROM
 ```
 
-Set `REQUIRE_VERIFIED_EMAIL` to `true` after email delivery is configured. A custom domain requires adding a DNS zone to the Cloudflare account, then adding the hostname route/custom domain in `wrangler.jsonc`.
+Set `REQUIRE_VERIFIED_EMAIL` to `true` after email delivery is configured.
+
+Google OAuth is optional and appears on `/login` only when both secrets are present. Configure the authorized redirect URI in Google Cloud as `${APP_URL}/api/auth/oauth/google/callback`, then set:
+
+```bash
+wrangler secret put GOOGLE_CLIENT_ID
+wrangler secret put GOOGLE_CLIENT_SECRET
+```
+
+A custom domain requires adding a DNS zone to the Cloudflare account, then adding the hostname route/custom domain in `wrangler.jsonc`.
 
 ## Features
 
 - Landing page with compliance-safe language
-- Password login, secure sessions, logout revocation, and email verification tokens
+- Password login, optional Google OAuth, secure sessions, logout revocation, and email verification tokens
 - Dashboard metrics, status badges, recent activity, empty/loading/error states
 - Multi-section proof pack editor
 - Latitude/longitude server validation
@@ -87,6 +96,7 @@ The Worker uses bindings directly rather than Cloudflare REST APIs.
 ## Known Limitations
 
 - Email verification can create secure tokens immediately; actual delivery requires `EMAIL_WEBHOOK_URL` or Resend secrets.
+- Google OAuth requires a Google Cloud OAuth client with `${APP_URL}/api/auth/oauth/google/callback` as an authorized redirect URI.
 - A custom domain cannot be bound until the Cloudflare account has a DNS zone for the desired hostname.
 - PDF export is represented by a printable/shareable summary, JSON download, and ZIP archive.
 - Map preview validates coordinates but does not render polygons yet.
@@ -115,3 +125,4 @@ The Worker uses bindings directly rather than Cloudflare REST APIs.
 - `migrations`: D1 schema
 - `scripts/seed.ts`: local demo seed
 - `docs`: product notes
+

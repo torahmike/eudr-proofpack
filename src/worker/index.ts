@@ -1,5 +1,6 @@
 import { ZodError } from "zod";
 import { createAndSendVerification, shouldRequireVerifiedEmail, verificationDto, verifyEmailToken } from "./auth/emailVerification";
+import { clearOAuthStateCookie, completeGoogleOAuth, oauthProviders, startGoogleOAuth } from "./auth/oauth";
 import { clearSessionCookie, isResponse, json, requireSession, secureToken, securityHeaders, sessionCookie, withSecurityHeaders } from "./auth/session";
 import { addActivity, checkRateLimit, ensurePackAccess, getDocuments, getPackRole, getPlots, getRecentActivity, listProofPacks, revokeSession } from "./db/queries";
 import type { DocumentRow, MemberRole, PlotRow, ProofPackRow, UserRow } from "./db/types";
@@ -51,6 +52,9 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   const path = url.pathname;
   if (mutatingMethods.has(method) && !isAllowedOrigin(request, env)) return json({ error: "Invalid request origin" }, 403);
 
+  if (method === "GET" && path === "/api/auth/oauth/providers") return json({ providers: oauthProviders(env) });
+  if (method === "GET" && path === "/api/auth/oauth/google/start") return startGoogleOAuth(request, env);
+  if (method === "GET" && path === "/api/auth/oauth/google/callback") return googleOAuthCallback(request, env);
   if (method === "POST" && path === "/api/auth/login") return login(request, env, ctx);
   if (method === "POST" && path === "/api/auth/verify-email") return verifyEmail(request, env);
   if (method === "POST" && path === "/api/auth/logout") {
@@ -136,6 +140,18 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   }
 
   return json({ error: "Not found" }, 404);
+}
+
+async function googleOAuthCallback(request: Request, env: Env): Promise<Response> {
+  const userOrResponse = await completeGoogleOAuth(request, env);
+  if (userOrResponse instanceof Response) return userOrResponse;
+  const sessionId = secureToken();
+  const ttl = Number.parseInt(env.SESSION_TTL_SECONDS, 10) || 604800;
+  await env.DB.prepare(`INSERT INTO sessions (id, user_id, expires_at, ip_address, user_agent) VALUES (?, ?, datetime('now', ?), ?, ?)`).bind(sessionId, userOrResponse.id, `+${ttl} seconds`, request.headers.get("CF-Connecting-IP"), request.headers.get("User-Agent")).run();
+  const headers = new Headers({ Location: "/app" });
+  headers.append("Set-Cookie", sessionCookie(sessionId, ttl));
+  headers.append("Set-Cookie", clearOAuthStateCookie());
+  return new Response(null, { status: 302, headers });
 }
 
 async function login(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -464,6 +480,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
+
 
 
 

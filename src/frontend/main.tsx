@@ -223,6 +223,15 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [googleOAuth, setGoogleOAuth] = useState(false);
+  useEffect(() => {
+    const errorParam = new URLSearchParams(window.location.search).get("oauth_error");
+    if (errorParam) setError(errorParam);
+    void api<{ providers: { google: boolean } }>("/api/auth/oauth/providers")
+      .then((data) => setGoogleOAuth(data.providers.google))
+      .catch(() => setGoogleOAuth(false));
+  }, []);
+
   async function submit(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
@@ -242,6 +251,12 @@ function LoginPage() {
         <ShieldCheck className="h-8 w-8 text-leaf" />
         <h1 className="mt-4 text-2xl font-semibold">Sign in to EUDR ProofPack</h1>
         <p className="mt-2 text-sm text-ink/65">Enter an email and a 12+ character password. New emails create an account; existing emails must use their password.</p>
+        {googleOAuth && (
+          <a href="/api/auth/oauth/google/start" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md border border-ink/15 px-4 py-3 font-medium text-ink">
+            <ShieldCheck className="h-4 w-4 text-leaf" /> Continue with Google
+          </a>
+        )}
+        {googleOAuth && <div className="mt-4 flex items-center gap-3 text-xs text-ink/45"><span className="h-px flex-1 bg-ink/10" /><span>or</span><span className="h-px flex-1 bg-ink/10" /></div>}
         <label className="mt-5 block text-sm font-medium">Email</label>
         <input value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-md border border-ink/15 px-3 py-3" type="email" />
         <label className="mt-4 block text-sm font-medium">Password</label>
