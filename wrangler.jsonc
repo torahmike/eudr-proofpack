@@ -14,15 +14,15 @@
     "head_sampling_rate": 1
   },
   "vars": {
-    "APP_ENV": "local",
-    "APP_URL": "http://localhost:5173",
+    "APP_ENV": "production",
+    "APP_URL": "https://eudr-proofpack.torahmike.workers.dev",
     "SESSION_TTL_SECONDS": "604800"
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "eudr-proofpack-db",
-      "database_id": "replace-with-d1-database-id",
+      "database_id": "7005749b-618b-40fd-b2b5-865491ed7fa4",
       "migrations_dir": "./migrations"
     }
   ],
