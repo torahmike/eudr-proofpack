@@ -127,7 +127,29 @@ function App() {
 }
 
 function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
-  const tiers = ["Free", "Starter", "Importer", "Team"];
+  const tiers = [
+    {
+      name: "Starter",
+      price: "€49",
+      description: "For small importers and exporters preparing their first EUDR evidence packs.",
+      features: ["1 user", "5 active proof packs", "Supplier upload links", "Basic ZIP/PDF export"],
+      highlighted: false,
+    },
+    {
+      name: "Growth",
+      price: "€149",
+      description: "For recurring shipments and teams that need a repeatable supplier evidence workflow.",
+      features: ["3-5 users", "25 active proof packs", "Supplier portal", "Audit trail and branded exports"],
+      highlighted: true,
+    },
+    {
+      name: "Consultant",
+      price: "€399",
+      description: "For compliance consultants, brokers, and operators managing multiple clients.",
+      features: ["15 users", "100+ proof packs", "Multi-client workspace", "Bulk CSV import and priority support"],
+      highlighted: false,
+    },
+  ];
   return (
     <main className="min-h-screen bg-flax text-ink">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
@@ -195,15 +217,56 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
         </div>
       </section>
       <section className="mx-auto max-w-7xl px-5 py-12">
-        <h2 className="text-3xl font-semibold">Pricing</h2>
-        <div className="mt-5 grid gap-4 md:grid-cols-4">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-normal text-clay">EUR launch pricing</p>
+            <h2 className="mt-2 text-3xl font-semibold">EUDR compliance without an ESG platform rollout</h2>
+            <p className="mt-3 max-w-2xl text-ink/65">
+              Start self-serve, invite suppliers, and export buyer-ready evidence bundles without waiting for an enterprise implementation.
+            </p>
+          </div>
+          <a href="/login" className="inline-flex items-center gap-2 rounded-md bg-leaf px-5 py-3 font-medium text-white shadow-soft">
+            Start with Growth <ArrowRight className="h-4 w-4" />
+          </a>
+        </div>
+        <div className="mt-7 grid gap-4 lg:grid-cols-3">
           {tiers.map((tier) => (
-            <div key={tier} className="rounded-lg border border-ink/10 bg-white p-5">
-              <h3 className="text-lg font-semibold">{tier}</h3>
-              <p className="mt-2 text-sm text-ink/65">Placeholder plan for MVP validation.</p>
-              <p className="mt-5 text-2xl font-semibold">Soon</p>
+            <div key={tier.name} className={`rounded-lg border bg-white p-5 ${tier.highlighted ? "border-leaf shadow-soft" : "border-ink/10"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-lg font-semibold">{tier.name}</h3>
+                {tier.highlighted && <span className="rounded-full bg-leaf/10 px-3 py-1 text-xs font-semibold text-leaf">Best fit</span>}
+              </div>
+              <p className="mt-4 text-4xl font-semibold">{tier.price}<span className="text-base font-medium text-ink/55">/mo</span></p>
+              <p className="mt-3 min-h-[3.5rem] text-sm leading-6 text-ink/65">{tier.description}</p>
+              <ul className="mt-5 space-y-3 text-sm">
+                {tier.features.map((feature) => (
+                  <li key={feature} className="flex gap-2">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-leaf" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
+        </div>
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <div className="rounded-lg border border-ink/10 bg-white p-5">
+            <h3 className="font-semibold">Pay-as-you-go</h3>
+            <p className="mt-2 text-sm text-ink/65">For one-off needs and seasonal EUDR work.</p>
+            <p className="mt-4 text-2xl font-semibold">€99<span className="text-sm font-medium text-ink/55"> single proof pack</span></p>
+            <p className="mt-2 text-sm text-ink/65">Extra active proof packs are €25 each.</p>
+          </div>
+          <div className="rounded-lg border border-ink/10 bg-white p-5">
+            <h3 className="font-semibold">Enterprise</h3>
+            <p className="mt-2 text-sm text-ink/65">For SSO, API access, custom retention, dedicated onboarding, and future ERP or TRACES workflows.</p>
+            <p className="mt-4 text-2xl font-semibold">From €1,000<span className="text-sm font-medium text-ink/55">/mo</span></p>
+          </div>
+          <div className="rounded-lg border border-ink/10 bg-flax p-5">
+            <h3 className="font-semibold">Launch positioning</h3>
+            <p className="mt-2 text-sm leading-6 text-ink/65">
+              Built for SMEs, suppliers, and consultants who need audit-ready evidence packs before they need a full ESG operating system.
+            </p>
+          </div>
         </div>
       </section>
       <section className="bg-ink py-10 text-white">
