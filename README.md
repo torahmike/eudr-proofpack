@@ -19,6 +19,9 @@ Usage and higher-touch options:
 - €99 one-time single proof pack export
 - €25 per extra active proof pack
 - Enterprise from €1,000/month for SSO, API access, custom retention, dedicated onboarding, and future ERP or TRACES workflows
+
+Plan limits are enforced server-side. Starter, Growth, and Consultant cap active proof packs at 5, 25, and 100 respectively, and cap seats at 1, 5, and 15. Enterprise has unlimited caps. Extra proof packs are represented by `organizations.extra_proof_pack_allowance`, which increases the active proof pack limit without changing the base plan.
+
 ## Stack
 
 - React, TypeScript, Vite, Tailwind CSS

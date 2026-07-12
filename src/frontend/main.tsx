@@ -101,6 +101,14 @@ interface MeResponse {
   organization: { name: string };
   stats: { total: number; byStatus: Record<Status, number> };
   activity: { id: string; message: string; event_type: string; created_at: string }[];
+  billing: {
+    plan: { id: string; name: string; priceMonthlyEur: number | null };
+    usage: { activeProofPacks: number; totalProofPacks: number; members: number };
+    extraProofPackAllowance: number;
+    effectiveLimits: { activeProofPacks: number | null; members: number | null };
+    canCreateProofPack: boolean;
+    canAddMember: boolean;
+  };
 }
 
 const commodities = ["coffee", "cocoa", "wood", "rubber", "soy", "palm_oil", "cattle", "other"];
@@ -366,6 +374,7 @@ function Dashboard() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
   const [verificationMessage, setVerificationMessage] = useState("");
 
   async function load() {
@@ -376,6 +385,7 @@ function Dashboard() {
         api<{ proofPacks: ProofPack[] }>("/api/proof-packs"),
       ]);
       setMe(meData);
+      setActionMessage("");
       setPacks(packData.proofPacks);
       setSelectedId((current) => current ?? packData.proofPacks[0]?.id ?? null);
     } catch (caught) {
@@ -392,11 +402,20 @@ function Dashboard() {
   const selected = packs.find((pack) => pack.id === selectedId) ?? null;
 
   async function createPack() {
+    if (me && !me.billing.canCreateProofPack) {
+      setActionMessage(`Your ${me.billing.plan.name} plan has reached its active proof pack limit.`);
+      return;
+    }
     const title = window.prompt("Proof pack title", "Coffee batch evidence pack");
     if (!title) return;
-    const data = await api<{ proofPack: ProofPack }>("/api/proof-packs", { method: "POST", body: { title, commodity: "coffee" } });
-    setPacks((current) => [data.proofPack, ...current]);
-    setSelectedId(data.proofPack.id);
+    try {
+      const data = await api<{ proofPack: ProofPack }>("/api/proof-packs", { method: "POST", body: { title, commodity: "coffee" } });
+      setPacks((current) => [data.proofPack, ...current]);
+      setSelectedId(data.proofPack.id);
+      await load();
+    } catch (caught) {
+      setActionMessage(caught instanceof Error ? caught.message : "Could not create proof pack");
+    }
   }
 
   async function resendVerification() {
@@ -427,9 +446,11 @@ function Dashboard() {
           <div className="rounded-lg border border-ink/10 bg-white p-5">
             <p className="text-sm text-ink/55">{me?.organization.name}</p>
             <h1 className="mt-1 text-2xl font-semibold">Evidence workspace</h1>
-            <button onClick={createPack} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-leaf px-4 py-3 text-white">
-              <PackagePlus className="h-4 w-4" /> New proof pack
+            {me && <PlanUsage billing={me.billing} />}
+            <button onClick={createPack} disabled={Boolean(me && !me.billing.canCreateProofPack)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-leaf px-4 py-3 text-white disabled:cursor-not-allowed disabled:bg-ink/30">
+              <PackagePlus className="h-4 w-4" /> {me && !me.billing.canCreateProofPack ? "Limit reached" : "New proof pack"}
             </button>
+            {actionMessage && <p className="mt-3 text-sm text-clay">{actionMessage}</p>}
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <Metric icon={<FileArchive />} label="Total" value={me?.stats.total ?? 0} />
@@ -762,6 +783,22 @@ function LinkBox({ title, url, onGenerate }: { title: string; url: string; onGen
 
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return <div className="rounded-lg border border-ink/10 bg-white p-4"><span className="block h-5 w-5 text-leaf">{icon}</span><p className="mt-3 text-2xl font-semibold">{value}</p><p className="text-sm text-ink/55">{label}</p></div>;
+}
+function PlanUsage({ billing }: { billing: MeResponse["billing"] }) {
+  const proofPackLimit = billing.effectiveLimits.activeProofPacks === null ? "Unlimited" : billing.effectiveLimits.activeProofPacks;
+  const memberLimit = billing.effectiveLimits.members === null ? "Unlimited" : billing.effectiveLimits.members;
+  const price = billing.plan.priceMonthlyEur === null ? "Custom" : `\u20ac${billing.plan.priceMonthlyEur}/mo`;
+  return (
+    <div className="mt-4 rounded-md border border-ink/10 bg-flax p-3 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-medium">{billing.plan.name}</span>
+        <span className="text-ink/60">{price}</span>
+      </div>
+      <p className="mt-2 text-ink/65">{billing.usage.activeProofPacks} / {proofPackLimit} active proof packs</p>
+      <p className="mt-1 text-ink/65">{billing.usage.members} / {memberLimit} users</p>
+      {billing.extraProofPackAllowance > 0 && <p className="mt-1 text-leaf">Includes {billing.extraProofPackAllowance} extra proof packs</p>}
+    </div>
+  );
 }
 
 function StatusBadge({ status }: { status: Status }) {

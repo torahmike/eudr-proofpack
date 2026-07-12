@@ -2,6 +2,7 @@ import { ZodError } from "zod";
 import { createAndSendVerification, shouldRequireVerifiedEmail, verificationDto, verifyEmailToken } from "./auth/emailVerification";
 import { clearOAuthStateCookie, completeGoogleOAuth, oauthProviders, startGoogleOAuth } from "./auth/oauth";
 import { clearSessionCookie, isResponse, json, requireSession, secureToken, securityHeaders, sessionCookie, withSecurityHeaders } from "./auth/session";
+import { checkProofPackLimit, getBillingSummary } from "./billing/plans";
 import { addActivity, checkRateLimit, ensurePackAccess, getDocuments, getPackRole, getPlots, getRecentActivity, listProofPacks, revokeSession } from "./db/queries";
 import type { DocumentRow, MemberRole, PlotRow, ProofPackRow, UserRow } from "./db/types";
 import { computeReadiness } from "./routes/score";
@@ -78,7 +79,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   if (method === "GET" && path === "/api/me") {
     const packs = await listProofPacks(env, session.organization.id);
     const activity = await getRecentActivity(env, session.organization.id);
-    return json({ user: userDto(session.user), verification: verificationDto(session.user), organization: session.organization, membership: session.membership, stats: buildStats(packs), activity });
+    const billing = await getBillingSummary(env, session.organization);
+    return json({ user: userDto(session.user), verification: verificationDto(session.user), organization: session.organization, membership: session.membership, stats: buildStats(packs), activity, billing });
   }
 
   if (method === "GET" && path === "/api/proof-packs") {
@@ -88,6 +90,8 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
 
   if (method === "POST" && path === "/api/proof-packs") {
     if (!canWrite(session.membership.role)) return json({ error: "Insufficient permissions" }, 403);
+    const limit = await checkProofPackLimit(env, session.organization);
+    if (!limit.ok) return json({ error: limit.message, billing: limit.summary }, 402);
     const input = proofPackCreateSchema.parse(await request.json());
     const id = crypto.randomUUID();
     await env.DB.prepare(`INSERT INTO proof_packs (id, organization_id, title, commodity, share_token, supplier_token) VALUES (?, ?, ?, ?, ?, ?)`).bind(id, session.organization.id, input.title, input.commodity, secureToken(), secureToken()).run();

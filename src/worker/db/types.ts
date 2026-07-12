@@ -14,6 +14,9 @@ export interface OrganizationRow {
   id: string;
   name: string;
   owner_user_id: string;
+  billing_plan: string;
+  billing_status: string;
+  extra_proof_pack_allowance: number;
   created_at: string;
 }
 
