@@ -8,7 +8,7 @@ import type { DocumentRow, MemberRole, PlotRow, ProofPackRow, UserRow } from "./
 import { computeReadiness } from "./routes/score";
 import { storeUpload } from "./storage/files";
 import { buildProofPackZip } from "./export/zip";
-import { documentMetaSchema, loginSchema, plotSchema, proofPackCreateSchema, proofPackPatchSchema, supplierUpdateSchema, verifyEmailSchema } from "./validation/schemas";
+import { documentMetaSchema, feedbackSchema, loginSchema, plotSchema, proofPackCreateSchema, proofPackPatchSchema, supplierUpdateSchema, verifyEmailSchema } from "./validation/schemas";
 
 interface ZipExportMessage {
   proofPackId: string;
@@ -58,6 +58,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   if (method === "GET" && path === "/api/auth/oauth/google/callback") return googleOAuthCallback(request, env);
   if (method === "POST" && path === "/api/auth/login") return login(request, env, ctx);
   if (method === "POST" && path === "/api/auth/verify-email") return verifyEmail(request, env);
+  if (method === "POST" && path === "/api/feedback") return submitFeedback(request, env);
   if (method === "POST" && path === "/api/auth/logout") {
     const session = await requireSession(request, env);
     if (!isResponse(session)) await revokeSession(env, session.sessionId);
@@ -146,6 +147,17 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   return json({ error: "Not found" }, 404);
 }
 
+async function submitFeedback(request: Request, env: Env): Promise<Response> {
+  const identity = `${request.headers.get("CF-Connecting-IP") ?? "unknown"}:${request.headers.get("User-Agent") ?? "unknown"}`;
+  if (!(await checkRateLimit(env, "feedback.submit", identity, 5, 3600))) return json({ error: "Too many feedback submissions" }, 429);
+  const input = feedbackSchema.parse(await request.json());
+  await env.DB.prepare(
+    `INSERT INTO feedback_messages (id, category, message, email, path, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(crypto.randomUUID(), input.category, input.message, input.email ?? null, input.path ?? null, request.headers.get("CF-Connecting-IP"), request.headers.get("User-Agent"))
+    .run();
+  return json({ ok: true }, 201);
+}
 async function googleOAuthCallback(request: Request, env: Env): Promise<Response> {
   const userOrResponse = await completeGoogleOAuth(request, env);
   if (userOrResponse instanceof Response) return userOrResponse;

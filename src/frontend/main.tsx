@@ -17,10 +17,13 @@ import {
   Loader2,
   Lock,
   MapPin,
+  MessageSquare,
   PackagePlus,
   ShieldCheck,
+  Send,
   Sprout,
   Upload,
+  X,
 } from "lucide-react";
 import "./styles.css";
 
@@ -125,13 +128,15 @@ const docTypes = [
 
 function App() {
   const path = window.location.pathname;
-  if (path.startsWith("/share/")) return <SharePage token={path.split("/")[2] ?? ""} />;
-  if (path.startsWith("/supplier/")) return <SupplierPortal token={path.split("/")[2] ?? ""} />;
-  if (path === "/login") return <LoginPage />;
-  if (path === "/verify-email") return <VerifyEmailPage />;
-  if (path === "/pricing") return <LandingPage pricingOnly />;
-  if (path.startsWith("/app")) return <Dashboard />;
-  return <LandingPage />;
+  let page: React.ReactNode;
+  if (path.startsWith("/share/")) page = <SharePage token={path.split("/")[2] ?? ""} />;
+  else if (path.startsWith("/supplier/")) page = <SupplierPortal token={path.split("/")[2] ?? ""} />;
+  else if (path === "/login") page = <LoginPage />;
+  else if (path === "/verify-email") page = <VerifyEmailPage />;
+  else if (path === "/pricing") page = <LandingPage pricingOnly />;
+  else if (path.startsWith("/app")) page = <Dashboard />;
+  else page = <LandingPage />;
+  return <>{page}<FeedbackWidget /></>;
 }
 
 function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
@@ -821,6 +826,72 @@ function EmptyState() {
   return <div className="rounded-lg border border-dashed border-ink/20 bg-white p-8 text-center text-ink/60"><Box className="mx-auto mb-3 h-8 w-8" /> No proof packs yet.</div>;
 }
 
+function FeedbackWidget() {
+  const [open, setOpen] = useState(false);
+  const [category, setCategory] = useState("idea");
+  const [message, setMessage] = useState("");
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setSubmitting(true);
+    setStatus("");
+    try {
+      await api("/api/feedback", { method: "POST", body: { category, message, email: email || undefined, path: window.location.pathname } });
+      setMessage("");
+      setEmail("");
+      setStatus("Thanks - got it.");
+      window.setTimeout(() => setOpen(false), 900);
+    } catch (caught) {
+      setStatus(caught instanceof Error ? caught.message : "Could not send feedback");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50 flex max-w-[calc(100vw-2rem)] flex-col items-end gap-3">
+      {open && (
+        <form onSubmit={submit} className="w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-ink/10 bg-white p-4 text-ink shadow-soft">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-semibold">Send feedback</h2>
+              <p className="mt-1 text-sm text-ink/60">Tell us what is confusing, broken, or missing.</p>
+            </div>
+            <button type="button" onClick={() => setOpen(false)} className="rounded-md border border-ink/10 p-2 text-ink/60" aria-label="Close feedback form">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <label className="mt-4 block text-sm font-medium">Type
+            <select value={category} onChange={(event) => setCategory(event.target.value)} className="mt-2 w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-normal">
+              <option value="idea">Idea</option>
+              <option value="bug">Bug</option>
+              <option value="confusing">Confusing</option>
+              <option value="praise">Praise</option>
+            </select>
+          </label>
+          <label className="mt-3 block text-sm font-medium">Message
+            <textarea value={message} onChange={(event) => setMessage(event.target.value)} className="mt-2 min-h-28 w-full resize-y rounded-md border border-ink/15 px-3 py-3 font-normal" maxLength={2000} required />
+          </label>
+          <label className="mt-3 block text-sm font-medium">Email <span className="font-normal text-ink/45">optional</span>
+            <input value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-md border border-ink/15 px-3 py-2 font-normal" type="email" maxLength={320} />
+          </label>
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <p className="text-sm text-ink/60">{status}</p>
+            <button className="inline-flex items-center gap-2 rounded-md bg-leaf px-4 py-2 font-medium text-white disabled:bg-ink/30" disabled={submitting || message.trim().length < 3}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Send
+            </button>
+          </div>
+        </form>
+      )}
+      <button onClick={() => setOpen((current) => !current)} className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-3 font-medium text-white shadow-soft" aria-expanded={open}>
+        <MessageSquare className="h-4 w-4" /> Feedback
+      </button>
+    </div>
+  );
+}
 function useLoad<T>(path: string) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState("");
