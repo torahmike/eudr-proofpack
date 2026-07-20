@@ -29,9 +29,12 @@ export async function requireSession(request: Request, env: Env): Promise<Sessio
   return session ?? json({ error: "Invalid or expired session" }, 401);
 }
 
-export function securityHeaders(): Record<string, string> {
+export function securityHeaders(options: { dev?: boolean } = {}): Record<string, string> {
+  const csp = options.dev
+    ? "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:"
+    : "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'";
   return {
-    "Content-Security-Policy": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'",
+    "Content-Security-Policy": csp,
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
@@ -40,9 +43,10 @@ export function securityHeaders(): Record<string, string> {
   };
 }
 
-export function withSecurityHeaders(response: Response): Response {
+export function withSecurityHeaders(response: Response, request?: Request): Response {
   const headers = new Headers(response.headers);
-  for (const [key, value] of Object.entries(securityHeaders())) headers.set(key, value);
+  const isLocalDev = request ? ["127.0.0.1", "localhost"].includes(new URL(request.url).hostname) : false;
+  for (const [key, value] of Object.entries(securityHeaders({ dev: isLocalDev }))) headers.set(key, value);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 

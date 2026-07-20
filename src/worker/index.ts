@@ -30,7 +30,7 @@ export default {
       if (url.pathname.startsWith(apiPrefix) || url.pathname.startsWith("/supplier/")) {
         return await route(request, env, ctx, url);
       }
-      return withSecurityHeaders(await env.ASSETS.fetch(request));
+      return withSecurityHeaders(await env.ASSETS.fetch(request), request);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unexpected error";
       console.log(JSON.stringify({ level: "error", message, path: url.pathname }));
