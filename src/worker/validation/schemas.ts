@@ -84,3 +84,10 @@ export const supplierUpdateSchema = proofPackPatchSchema.pick({
 
 export type ProofPackPatch = z.infer<typeof proofPackPatchSchema>;
 
+
+export const feedbackSchema = z.object({
+  category: z.enum(["idea", "bug", "confusing", "praise"]).default("idea"),
+  message: z.string().trim().min(3).max(2000),
+  email: z.string().trim().email().max(320).optional(),
+  path: z.string().trim().max(2048).optional(),
+});

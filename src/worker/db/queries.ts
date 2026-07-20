@@ -9,7 +9,7 @@ export async function getSessionContext(env: Env, sessionId: string): Promise<Se
   if (!user) return null;
 
   const row = await env.DB.prepare(
-    `SELECT organizations.id AS org_id, organizations.name, organizations.owner_user_id, organizations.created_at,
+    `SELECT organizations.id AS org_id, organizations.name, organizations.owner_user_id, organizations.billing_plan, organizations.billing_status, organizations.extra_proof_pack_allowance, organizations.created_at,
             organization_members.id AS member_id, organization_members.role
      FROM organizations
      JOIN organization_members ON organization_members.organization_id = organizations.id
@@ -17,13 +17,13 @@ export async function getSessionContext(env: Env, sessionId: string): Promise<Se
      ORDER BY organizations.created_at ASC LIMIT 1`,
   )
     .bind(user.id)
-    .first<{ org_id: string; name: string; owner_user_id: string; created_at: string; member_id: string; role: OrganizationMemberRow["role"] }>();
+    .first<{ org_id: string; name: string; owner_user_id: string; billing_plan: string; billing_status: string; extra_proof_pack_allowance: number; created_at: string; member_id: string; role: OrganizationMemberRow["role"] }>();
   if (!row) return null;
 
   return {
     sessionId,
     user,
-    organization: { id: row.org_id, name: row.name, owner_user_id: row.owner_user_id, created_at: row.created_at },
+    organization: { id: row.org_id, name: row.name, owner_user_id: row.owner_user_id, billing_plan: row.billing_plan, billing_status: row.billing_status, extra_proof_pack_allowance: row.extra_proof_pack_allowance, created_at: row.created_at },
     membership: { id: row.member_id, organization_id: row.org_id, user_id: user.id, role: row.role },
   };
 }

@@ -17,10 +17,13 @@ import {
   Loader2,
   Lock,
   MapPin,
+  MessageSquare,
   PackagePlus,
   ShieldCheck,
+  Send,
   Sprout,
   Upload,
+  X,
 } from "lucide-react";
 import "./styles.css";
 
@@ -101,6 +104,14 @@ interface MeResponse {
   organization: { name: string };
   stats: { total: number; byStatus: Record<Status, number> };
   activity: { id: string; message: string; event_type: string; created_at: string }[];
+  billing: {
+    plan: { id: string; name: string; priceMonthlyEur: number | null };
+    usage: { activeProofPacks: number; totalProofPacks: number; members: number };
+    extraProofPackAllowance: number;
+    effectiveLimits: { activeProofPacks: number | null; members: number | null };
+    canCreateProofPack: boolean;
+    canAddMember: boolean;
+  };
 }
 
 const commodities = ["coffee", "cocoa", "wood", "rubber", "soy", "palm_oil", "cattle", "other"];
@@ -117,17 +128,41 @@ const docTypes = [
 
 function App() {
   const path = window.location.pathname;
-  if (path.startsWith("/share/")) return <SharePage token={path.split("/")[2] ?? ""} />;
-  if (path.startsWith("/supplier/")) return <SupplierPortal token={path.split("/")[2] ?? ""} />;
-  if (path === "/login") return <LoginPage />;
-  if (path === "/verify-email") return <VerifyEmailPage />;
-  if (path === "/pricing") return <LandingPage pricingOnly />;
-  if (path.startsWith("/app")) return <Dashboard />;
-  return <LandingPage />;
+  let page: React.ReactNode;
+  if (path.startsWith("/share/")) page = <SharePage token={path.split("/")[2] ?? ""} />;
+  else if (path.startsWith("/supplier/")) page = <SupplierPortal token={path.split("/")[2] ?? ""} />;
+  else if (path === "/login") page = <LoginPage />;
+  else if (path === "/verify-email") page = <VerifyEmailPage />;
+  else if (path === "/pricing") page = <LandingPage pricingOnly />;
+  else if (path.startsWith("/app")) page = <Dashboard />;
+  else page = <LandingPage />;
+  return <>{page}<FeedbackWidget /></>;
 }
 
 function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
-  const tiers = ["Free", "Starter", "Importer", "Team"];
+  const tiers = [
+    {
+      name: "Starter",
+      price: "€49",
+      description: "For small importers and exporters preparing their first EUDR evidence packs.",
+      features: ["1 user", "5 active proof packs", "Supplier upload links", "Basic ZIP/PDF export"],
+      highlighted: false,
+    },
+    {
+      name: "Growth",
+      price: "€149",
+      description: "For recurring shipments and teams that need a repeatable supplier evidence workflow.",
+      features: ["3-5 users", "25 active proof packs", "Supplier portal", "Audit trail and branded exports"],
+      highlighted: true,
+    },
+    {
+      name: "Consultant",
+      price: "€399",
+      description: "For compliance consultants, brokers, and operators managing multiple clients.",
+      features: ["15 users", "100+ proof packs", "Multi-client workspace", "Bulk CSV import and priority support"],
+      highlighted: false,
+    },
+  ];
   return (
     <main className="min-h-screen bg-flax text-ink">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
@@ -195,15 +230,56 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
         </div>
       </section>
       <section className="mx-auto max-w-7xl px-5 py-12">
-        <h2 className="text-3xl font-semibold">Pricing</h2>
-        <div className="mt-5 grid gap-4 md:grid-cols-4">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-normal text-clay">EUR launch pricing</p>
+            <h2 className="mt-2 text-3xl font-semibold">EUDR compliance without an ESG platform rollout</h2>
+            <p className="mt-3 max-w-2xl text-ink/65">
+              Start self-serve, invite suppliers, and export buyer-ready evidence bundles without waiting for an enterprise implementation.
+            </p>
+          </div>
+          <a href="/login" className="inline-flex items-center gap-2 rounded-md bg-leaf px-5 py-3 font-medium text-white shadow-soft">
+            Start with Growth <ArrowRight className="h-4 w-4" />
+          </a>
+        </div>
+        <div className="mt-7 grid gap-4 lg:grid-cols-3">
           {tiers.map((tier) => (
-            <div key={tier} className="rounded-lg border border-ink/10 bg-white p-5">
-              <h3 className="text-lg font-semibold">{tier}</h3>
-              <p className="mt-2 text-sm text-ink/65">Placeholder plan for MVP validation.</p>
-              <p className="mt-5 text-2xl font-semibold">Soon</p>
+            <div key={tier.name} className={`rounded-lg border bg-white p-5 ${tier.highlighted ? "border-leaf shadow-soft" : "border-ink/10"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-lg font-semibold">{tier.name}</h3>
+                {tier.highlighted && <span className="rounded-full bg-leaf/10 px-3 py-1 text-xs font-semibold text-leaf">Best fit</span>}
+              </div>
+              <p className="mt-4 text-4xl font-semibold">{tier.price}<span className="text-base font-medium text-ink/55">/mo</span></p>
+              <p className="mt-3 min-h-[3.5rem] text-sm leading-6 text-ink/65">{tier.description}</p>
+              <ul className="mt-5 space-y-3 text-sm">
+                {tier.features.map((feature) => (
+                  <li key={feature} className="flex gap-2">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-leaf" />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
+        </div>
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <div className="rounded-lg border border-ink/10 bg-white p-5">
+            <h3 className="font-semibold">Pay-as-you-go</h3>
+            <p className="mt-2 text-sm text-ink/65">For one-off needs and seasonal EUDR work.</p>
+            <p className="mt-4 text-2xl font-semibold">€99<span className="text-sm font-medium text-ink/55"> single proof pack</span></p>
+            <p className="mt-2 text-sm text-ink/65">Extra active proof packs are €25 each.</p>
+          </div>
+          <div className="rounded-lg border border-ink/10 bg-white p-5">
+            <h3 className="font-semibold">Enterprise</h3>
+            <p className="mt-2 text-sm text-ink/65">For SSO, API access, custom retention, dedicated onboarding, and future ERP or TRACES workflows.</p>
+            <p className="mt-4 text-2xl font-semibold">From €1,000<span className="text-sm font-medium text-ink/55">/mo</span></p>
+          </div>
+          <div className="rounded-lg border border-ink/10 bg-flax p-5">
+            <h3 className="font-semibold">Launch positioning</h3>
+            <p className="mt-2 text-sm leading-6 text-ink/65">
+              Built for SMEs, suppliers, and consultants who need audit-ready evidence packs before they need a full ESG operating system.
+            </p>
+          </div>
         </div>
       </section>
       <section className="bg-ink py-10 text-white">
@@ -303,6 +379,7 @@ function Dashboard() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
   const [verificationMessage, setVerificationMessage] = useState("");
 
   async function load() {
@@ -313,6 +390,7 @@ function Dashboard() {
         api<{ proofPacks: ProofPack[] }>("/api/proof-packs"),
       ]);
       setMe(meData);
+      setActionMessage("");
       setPacks(packData.proofPacks);
       setSelectedId((current) => current ?? packData.proofPacks[0]?.id ?? null);
     } catch (caught) {
@@ -329,11 +407,20 @@ function Dashboard() {
   const selected = packs.find((pack) => pack.id === selectedId) ?? null;
 
   async function createPack() {
+    if (me && !me.billing.canCreateProofPack) {
+      setActionMessage(`Your ${me.billing.plan.name} plan has reached its active proof pack limit.`);
+      return;
+    }
     const title = window.prompt("Proof pack title", "Coffee batch evidence pack");
     if (!title) return;
-    const data = await api<{ proofPack: ProofPack }>("/api/proof-packs", { method: "POST", body: { title, commodity: "coffee" } });
-    setPacks((current) => [data.proofPack, ...current]);
-    setSelectedId(data.proofPack.id);
+    try {
+      const data = await api<{ proofPack: ProofPack }>("/api/proof-packs", { method: "POST", body: { title, commodity: "coffee" } });
+      setPacks((current) => [data.proofPack, ...current]);
+      setSelectedId(data.proofPack.id);
+      await load();
+    } catch (caught) {
+      setActionMessage(caught instanceof Error ? caught.message : "Could not create proof pack");
+    }
   }
 
   async function resendVerification() {
@@ -364,9 +451,11 @@ function Dashboard() {
           <div className="rounded-lg border border-ink/10 bg-white p-5">
             <p className="text-sm text-ink/55">{me?.organization.name}</p>
             <h1 className="mt-1 text-2xl font-semibold">Evidence workspace</h1>
-            <button onClick={createPack} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-leaf px-4 py-3 text-white">
-              <PackagePlus className="h-4 w-4" /> New proof pack
+            {me && <PlanUsage billing={me.billing} />}
+            <button onClick={createPack} disabled={Boolean(me && !me.billing.canCreateProofPack)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-leaf px-4 py-3 text-white disabled:cursor-not-allowed disabled:bg-ink/30">
+              <PackagePlus className="h-4 w-4" /> {me && !me.billing.canCreateProofPack ? "Limit reached" : "New proof pack"}
             </button>
+            {actionMessage && <p className="mt-3 text-sm text-clay">{actionMessage}</p>}
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <Metric icon={<FileArchive />} label="Total" value={me?.stats.total ?? 0} />
@@ -700,6 +789,22 @@ function LinkBox({ title, url, onGenerate }: { title: string; url: string; onGen
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return <div className="rounded-lg border border-ink/10 bg-white p-4"><span className="block h-5 w-5 text-leaf">{icon}</span><p className="mt-3 text-2xl font-semibold">{value}</p><p className="text-sm text-ink/55">{label}</p></div>;
 }
+function PlanUsage({ billing }: { billing: MeResponse["billing"] }) {
+  const proofPackLimit = billing.effectiveLimits.activeProofPacks === null ? "Unlimited" : billing.effectiveLimits.activeProofPacks;
+  const memberLimit = billing.effectiveLimits.members === null ? "Unlimited" : billing.effectiveLimits.members;
+  const price = billing.plan.priceMonthlyEur === null ? "Custom" : `\u20ac${billing.plan.priceMonthlyEur}/mo`;
+  return (
+    <div className="mt-4 rounded-md border border-ink/10 bg-flax p-3 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-medium">{billing.plan.name}</span>
+        <span className="text-ink/60">{price}</span>
+      </div>
+      <p className="mt-2 text-ink/65">{billing.usage.activeProofPacks} / {proofPackLimit} active proof packs</p>
+      <p className="mt-1 text-ink/65">{billing.usage.members} / {memberLimit} users</p>
+      {billing.extraProofPackAllowance > 0 && <p className="mt-1 text-leaf">Includes {billing.extraProofPackAllowance} extra proof packs</p>}
+    </div>
+  );
+}
 
 function StatusBadge({ status }: { status: Status }) {
   return <span className="rounded-full bg-leaf/10 px-2.5 py-1 text-xs font-semibold text-leaf">{labelize(status)}</span>;
@@ -721,6 +826,72 @@ function EmptyState() {
   return <div className="rounded-lg border border-dashed border-ink/20 bg-white p-8 text-center text-ink/60"><Box className="mx-auto mb-3 h-8 w-8" /> No proof packs yet.</div>;
 }
 
+function FeedbackWidget() {
+  const [open, setOpen] = useState(false);
+  const [category, setCategory] = useState("idea");
+  const [message, setMessage] = useState("");
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setSubmitting(true);
+    setStatus("");
+    try {
+      await api("/api/feedback", { method: "POST", body: { category, message, email: email || undefined, path: window.location.pathname } });
+      setMessage("");
+      setEmail("");
+      setStatus("Thanks - got it.");
+      window.setTimeout(() => setOpen(false), 900);
+    } catch (caught) {
+      setStatus(caught instanceof Error ? caught.message : "Could not send feedback");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed bottom-4 right-4 z-50 flex max-w-[calc(100vw-2rem)] flex-col items-end gap-3">
+      {open && (
+        <form onSubmit={submit} className="w-[min(24rem,calc(100vw-2rem))] rounded-lg border border-ink/10 bg-white p-4 text-ink shadow-soft">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="font-semibold">Send feedback</h2>
+              <p className="mt-1 text-sm text-ink/60">Tell us what is confusing, broken, or missing.</p>
+            </div>
+            <button type="button" onClick={() => setOpen(false)} className="rounded-md border border-ink/10 p-2 text-ink/60" aria-label="Close feedback form">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <label className="mt-4 block text-sm font-medium">Type
+            <select value={category} onChange={(event) => setCategory(event.target.value)} className="mt-2 w-full rounded-md border border-ink/15 bg-white px-3 py-2 font-normal">
+              <option value="idea">Idea</option>
+              <option value="bug">Bug</option>
+              <option value="confusing">Confusing</option>
+              <option value="praise">Praise</option>
+            </select>
+          </label>
+          <label className="mt-3 block text-sm font-medium">Message
+            <textarea value={message} onChange={(event) => setMessage(event.target.value)} className="mt-2 min-h-28 w-full resize-y rounded-md border border-ink/15 px-3 py-3 font-normal" maxLength={2000} required />
+          </label>
+          <label className="mt-3 block text-sm font-medium">Email <span className="font-normal text-ink/45">optional</span>
+            <input value={email} onChange={(event) => setEmail(event.target.value)} className="mt-2 w-full rounded-md border border-ink/15 px-3 py-2 font-normal" type="email" maxLength={320} />
+          </label>
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <p className="text-sm text-ink/60">{status}</p>
+            <button className="inline-flex items-center gap-2 rounded-md bg-leaf px-4 py-2 font-medium text-white disabled:bg-ink/30" disabled={submitting || message.trim().length < 3}>
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Send
+            </button>
+          </div>
+        </form>
+      )}
+      <button onClick={() => setOpen((current) => !current)} className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-3 font-medium text-white shadow-soft" aria-expanded={open}>
+        <MessageSquare className="h-4 w-4" /> Feedback
+      </button>
+    </div>
+  );
+}
 function useLoad<T>(path: string) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState("");

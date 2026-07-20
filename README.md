@@ -4,6 +4,24 @@ EUDR ProofPack is an MVP MicroSaaS for small importers and suppliers preparing b
 
 This product provides EUDR readiness and due-diligence support only. It is not legal advice, not official EUDR certification, and does not guarantee compliance.
 
+## Launch Pricing
+
+Pricing is listed in EUR because EUDR is EU-driven and most target buyers are EU-facing.
+
+| Plan | Price | Best for | Included |
+| --- | ---: | --- | --- |
+| Starter | €49/month | Small importers and exporters preparing their first EUDR evidence packs | 1 user, 5 active proof packs, supplier upload links, basic ZIP/PDF export |
+| Growth | €149/month | Recurring shipments and teams that need a repeatable supplier evidence workflow | 3-5 users, 25 active proof packs, supplier portal, audit trail, branded exports |
+| Consultant | €399/month | Compliance consultants, brokers, and operators managing multiple clients | 15 users, 100+ proof packs, multi-client workspace, bulk CSV import, priority support |
+
+Usage and higher-touch options:
+
+- €99 one-time single proof pack export
+- €25 per extra active proof pack
+- Enterprise from €1,000/month for SSO, API access, custom retention, dedicated onboarding, and future ERP or TRACES workflows
+
+Plan limits are enforced server-side. Starter, Growth, and Consultant cap active proof packs at 5, 25, and 100 respectively, and cap seats at 1, 5, and 15. Enterprise has unlimited caps. Extra proof packs are represented by `organizations.extra_proof_pack_allowance`, which increases the active proof pack limit without changing the base plan.
+
 ## Stack
 
 - React, TypeScript, Vite, Tailwind CSS
