@@ -31,8 +31,8 @@ export async function requireSession(request: Request, env: Env): Promise<Sessio
 
 export function securityHeaders(options: { dev?: boolean } = {}): Record<string, string> {
   const csp = options.dev
-    ? "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:"
-    : "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data:; script-src 'self'; style-src 'self'";
+    ? "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://*.paddle.com; img-src 'self' data: https://*.paddle.com; script-src 'self' 'unsafe-inline' https://cdn.paddle.com; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss: https://*.paddle.com; frame-src https://*.paddle.com"
+    : "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://*.paddle.com; img-src 'self' data: https://*.paddle.com; script-src 'self' https://cdn.paddle.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.paddle.com; frame-src https://*.paddle.com";
   return {
     "Content-Security-Policy": csp,
     "Referrer-Policy": "strict-origin-when-cross-origin",

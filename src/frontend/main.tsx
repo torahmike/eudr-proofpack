@@ -101,7 +101,7 @@ interface ProofPack {
 interface MeResponse {
   user: { email: string; name: string | null; email_verified_at?: string | null };
   verification: { emailVerified: boolean; emailVerifiedAt: string | null };
-  organization: { name: string };
+  organization: { id: string; name: string };
   stats: { total: number; byStatus: Record<Status, number> };
   activity: { id: string; message: string; event_type: string; created_at: string }[];
   billing: {
@@ -114,6 +114,21 @@ interface MeResponse {
   };
 }
 
+interface PaddleConfig {
+  enabled: boolean;
+  environment: "sandbox" | "production";
+  clientToken: string | null;
+  prices: { starter: string | null; growth: string | null; consultant: string | null; extraProofPack: string | null };
+  customer: { email: string };
+  organization: { id: string; name: string };
+}
+
+declare global {
+  interface Window {
+    Paddle?: any;
+    __paddleInitialized?: boolean;
+  }
+}
 const commodities = ["coffee", "cocoa", "wood", "rubber", "soy", "palm_oil", "cattle", "other"];
 const statuses: Status[] = ["draft", "waiting_for_supplier", "in_review", "buyer_ready", "archived"];
 const docTypes = [
@@ -140,8 +155,19 @@ function App() {
 }
 
 function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
+  const [paddle, setPaddle] = useState<PaddleConfig | null>(null);
+  const [checkoutMessage, setCheckoutMessage] = useState("");
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+
+  useEffect(() => {
+    void api<PaddleConfig>("/api/billing/paddle-config")
+      .then(setPaddle)
+      .catch(() => setPaddle(null));
+  }, []);
+
   const tiers = [
     {
+      planId: "starter" as const,
       name: "Starter",
       price: "\u20ac49",
       description: "For small importers and exporters preparing their first EUDR evidence packs.",
@@ -149,6 +175,7 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
       highlighted: false,
     },
     {
+      planId: "growth" as const,
       name: "Growth",
       price: "\u20ac149",
       description: "For recurring shipments and teams that need a repeatable supplier evidence workflow.",
@@ -156,6 +183,7 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
       highlighted: true,
     },
     {
+      planId: "consultant" as const,
       name: "Consultant",
       price: "\u20ac399",
       description: "For compliance consultants, brokers, and operators managing multiple clients.",
@@ -163,6 +191,37 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
       highlighted: false,
     },
   ];
+  async function openCheckout(planId: "starter" | "growth" | "consultant") {
+    if (!paddle) {
+      window.location.href = "/login";
+      return;
+    }
+    const priceId = paddle.prices[planId];
+    if (!paddle.enabled || !paddle.clientToken || !priceId) {
+      setCheckoutMessage("Paddle checkout is ready in code. Add the Paddle token and price IDs to enable live purchases.");
+      return;
+    }
+    setCheckoutLoading(planId);
+    setCheckoutMessage("");
+    try {
+      await loadPaddleScript();
+      if (!window.__paddleInitialized) {
+        if (paddle.environment === "sandbox") window.Paddle.Environment.set("sandbox");
+        window.Paddle.Initialize({ token: paddle.clientToken });
+        window.__paddleInitialized = true;
+      }
+      window.Paddle.Checkout.open({
+        items: [{ priceId, quantity: 1 }],
+        customer: { email: paddle.customer.email },
+        customData: { organizationId: paddle.organization.id, plan: planId },
+        settings: { displayMode: "overlay", theme: "light", successUrl: `${window.location.origin}/app` },
+      });
+    } catch (caught) {
+      setCheckoutMessage(caught instanceof Error ? caught.message : "Could not open Paddle checkout.");
+    } finally {
+      setCheckoutLoading(null);
+    }
+  }
   return (
     <main className="min-h-screen bg-flax text-ink">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
@@ -259,9 +318,14 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
                   </li>
                 ))}
               </ul>
+              <button type="button" onClick={() => openCheckout(tier.planId)} disabled={checkoutLoading === tier.planId} className={`mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-3 font-medium ${tier.highlighted ? "bg-leaf text-white" : "border border-ink/15 text-ink"}`}>
+                {checkoutLoading === tier.planId ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                {paddle ? "Subscribe with Paddle" : "Log in to subscribe"}
+              </button>
             </div>
           ))}
         </div>
+        {checkoutMessage && <p className="mt-4 rounded-md border border-clay/25 bg-white px-4 py-3 text-sm text-clay">{checkoutMessage}</p>}
         <div className="mt-5 grid gap-4 lg:grid-cols-3">
           <div className="rounded-lg border border-ink/10 bg-white p-5">
             <h3 className="font-semibold">Pay-as-you-go</h3>
@@ -294,6 +358,23 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
   );
 }
 
+function loadPaddleScript(): Promise<void> {
+  if (window.Paddle) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>('script[src="https://cdn.paddle.com/paddle/v2/paddle.js"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Could not load Paddle checkout.")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://cdn.paddle.com/paddle/v2/paddle.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Could not load Paddle checkout."));
+    document.head.appendChild(script);
+  });
+}
 function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -321,6 +402,7 @@ function LoginPage() {
       setLoading(false);
     }
   }
+
   return (
     <main className="grid min-h-screen place-items-center bg-flax px-5">
       <form onSubmit={submit} className="w-full max-w-md rounded-lg border border-ink/10 bg-white p-6 shadow-soft">
@@ -362,6 +444,7 @@ function VerifyEmailPage() {
       })
       .catch((caught) => setMessage(caught instanceof Error ? caught.message : "Could not verify email"));
   }, []);
+
   return (
     <main className="grid min-h-screen place-items-center bg-flax px-5 text-ink">
       <div className="w-full max-w-md rounded-lg border border-ink/10 bg-white p-6 shadow-soft">
@@ -938,4 +1021,3 @@ function labelize(value: string) {
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
-

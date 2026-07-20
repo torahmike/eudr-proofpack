@@ -17,6 +17,10 @@ export interface OrganizationRow {
   billing_plan: string;
   billing_status: string;
   extra_proof_pack_allowance: number;
+  paddle_customer_id: string | null;
+  paddle_subscription_id: string | null;
+  paddle_price_id: string | null;
+  billing_period_ends_at: string | null;
   created_at: string;
 }
 
