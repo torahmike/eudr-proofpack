@@ -143,21 +143,21 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
   const tiers = [
     {
       name: "Starter",
-      price: "€49",
+      price: "\u20ac49",
       description: "For small importers and exporters preparing their first EUDR evidence packs.",
       features: ["1 user", "5 active proof packs", "Supplier upload links", "Basic ZIP/PDF export"],
       highlighted: false,
     },
     {
       name: "Growth",
-      price: "€149",
+      price: "\u20ac149",
       description: "For recurring shipments and teams that need a repeatable supplier evidence workflow.",
       features: ["3-5 users", "25 active proof packs", "Supplier portal", "Audit trail and branded exports"],
       highlighted: true,
     },
     {
       name: "Consultant",
-      price: "€399",
+      price: "\u20ac399",
       description: "For compliance consultants, brokers, and operators managing multiple clients.",
       features: ["15 users", "100+ proof packs", "Multi-client workspace", "Bulk CSV import and priority support"],
       highlighted: false,
@@ -266,13 +266,13 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
           <div className="rounded-lg border border-ink/10 bg-white p-5">
             <h3 className="font-semibold">Pay-as-you-go</h3>
             <p className="mt-2 text-sm text-ink/65">For one-off needs and seasonal EUDR work.</p>
-            <p className="mt-4 text-2xl font-semibold">€99<span className="text-sm font-medium text-ink/55"> single proof pack</span></p>
-            <p className="mt-2 text-sm text-ink/65">Extra active proof packs are €25 each.</p>
+            <p className="mt-4 text-2xl font-semibold">&euro;99<span className="text-sm font-medium text-ink/55"> single proof pack</span></p>
+            <p className="mt-2 text-sm text-ink/65">Extra active proof packs are &euro;25 each.</p>
           </div>
           <div className="rounded-lg border border-ink/10 bg-white p-5">
             <h3 className="font-semibold">Enterprise</h3>
             <p className="mt-2 text-sm text-ink/65">For SSO, API access, custom retention, dedicated onboarding, and future ERP or TRACES workflows.</p>
-            <p className="mt-4 text-2xl font-semibold">From €1,000<span className="text-sm font-medium text-ink/55">/mo</span></p>
+            <p className="mt-4 text-2xl font-semibold">From &euro;1,000<span className="text-sm font-medium text-ink/55">/mo</span></p>
           </div>
           <div className="rounded-lg border border-ink/10 bg-flax p-5">
             <h3 className="font-semibold">Launch positioning</h3>
