@@ -67,6 +67,43 @@ npm run db:migrate:staging
 npm run deploy:staging
 ```
 
+## Cloudflare Environment Variables
+
+Set non-secret environment variables in `wrangler.jsonc` or the Cloudflare dashboard. Set secrets with `wrangler secret put <NAME>` for each environment that needs them; use `--env staging` when setting staging secrets.
+
+| Name | Type | Required | Used for |
+| --- | --- | --- | --- |
+| `APP_ENV` | Var | Yes | Runtime environment label, such as `production` or `staging`. |
+| `APP_URL` | Var | Yes | Public base URL for OAuth redirects, verification links, and webhook setup notes. |
+| `SESSION_TTL_SECONDS` | Var | Yes | Session cookie lifetime; currently `604800`. |
+| `REQUIRE_VERIFIED_EMAIL` | Var | Recommended | Set to `true` after email delivery is configured. |
+| `PADDLE_ENVIRONMENT` | Var | Yes for billing | `sandbox` until live Paddle products are ready, then `production`. |
+| `EMAIL_WEBHOOK_URL` | Secret | Optional | Custom transactional email webhook for verification emails. |
+| `RESEND_API_KEY` | Secret | Optional | Resend email delivery; pair with `EMAIL_FROM`. |
+| `EMAIL_FROM` | Secret | Optional | Sender address for Resend email delivery. |
+| `GOOGLE_CLIENT_ID` | Secret | Optional | Enables Google OAuth login when paired with `GOOGLE_CLIENT_SECRET`. |
+| `GOOGLE_CLIENT_SECRET` | Secret | Optional | Secret for Google OAuth login. |
+| `PADDLE_CLIENT_TOKEN` | Secret | Required for checkout | Paddle.js client token returned to signed-in users for checkout. |
+| `PADDLE_PRICE_STARTER` | Secret | Required for checkout | Paddle recurring price ID for Starter. |
+| `PADDLE_PRICE_GROWTH` | Secret | Required for checkout | Paddle recurring price ID for Growth. |
+| `PADDLE_PRICE_CONSULTANT` | Secret | Required for checkout | Paddle recurring price ID for Consultant. |
+| `PADDLE_PRICE_EXTRA_PROOF_PACK` | Secret | Optional | Paddle price ID for extra proof-pack add-ons. |
+| `PADDLE_WEBHOOK_SECRET` | Secret | Required for billing sync | Verifies Paddle webhook signatures. |
+
+Useful setup commands:
+
+```bash
+wrangler secret put GOOGLE_CLIENT_ID
+wrangler secret put GOOGLE_CLIENT_SECRET
+wrangler secret put PADDLE_CLIENT_TOKEN
+wrangler secret put PADDLE_PRICE_STARTER
+wrangler secret put PADDLE_PRICE_GROWTH
+wrangler secret put PADDLE_PRICE_CONSULTANT
+wrangler secret put PADDLE_PRICE_EXTRA_PROOF_PACK
+wrangler secret put PADDLE_WEBHOOK_SECRET
+```
+
+For staging, append `--env staging` to each `wrangler secret put` command.
 Secrets should be set with Wrangler prompts, never committed. Email verification delivery is production-ready when one of these configurations is present:
 
 ```bash
@@ -106,6 +143,7 @@ wrangler secret put PADDLE_WEBHOOK_SECRET
 `PADDLE_ENVIRONMENT` defaults to `sandbox` in `wrangler.jsonc`; change it to `production` when live Paddle products are ready. Configure Paddle webhooks to call `${APP_URL}/api/billing/paddle-webhook` and subscribe to `transaction.completed`, `subscription.created`, `subscription.updated`, and `subscription.canceled`.
 
 Incoming webhooks are idempotent by Paddle `event_id`, verified with the `Paddle-Signature` HMAC, and update `organizations.billing_plan` plus Paddle customer/subscription metadata. Existing server-side plan limits continue to enforce active proof pack and user caps after the billing plan changes.
+
 ## Features
 
 - Landing page with compliance-safe language
