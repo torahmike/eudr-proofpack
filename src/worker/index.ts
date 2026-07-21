@@ -3,8 +3,9 @@ import { createAndSendVerification, shouldRequireVerifiedEmail, verificationDto,
 import { clearOAuthStateCookie, completeGoogleOAuth, oauthProviders, startGoogleOAuth } from "./auth/oauth";
 import { clearSessionCookie, isResponse, json, requireSession, secureToken, securityHeaders, sessionCookie, withSecurityHeaders } from "./auth/session";
 import { checkProofPackLimit, getBillingSummary } from "./billing/plans";
+import { getPaddleCheckoutConfig, handlePaddleWebhook } from "./billing/paddle";
 import { addActivity, checkRateLimit, ensurePackAccess, getDocuments, getPackRole, getPlots, getRecentActivity, listProofPacks, revokeSession } from "./db/queries";
-import type { DocumentRow, MemberRole, PlotRow, ProofPackRow, UserRow } from "./db/types";
+import type { DocumentRow, MemberRole, PlotRow, ProofPackRow, SessionContext, UserRow } from "./db/types";
 import { computeReadiness } from "./routes/score";
 import { storeUpload } from "./storage/files";
 import { buildProofPackZip } from "./export/zip";
@@ -51,6 +52,7 @@ export default {
 async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL): Promise<Response> {
   const method = request.method;
   const path = url.pathname;
+  if (method === "POST" && path === "/api/billing/paddle-webhook") return handlePaddleWebhook(request, env);
   if (mutatingMethods.has(method) && !isAllowedOrigin(request, env)) return json({ error: "Invalid request origin" }, 403);
 
   if (method === "GET" && path === "/api/auth/oauth/providers") return json({ providers: oauthProviders(env) });
@@ -74,6 +76,7 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
   if (isResponse(session)) return session;
 
   if (method === "POST" && path === "/api/auth/resend-verification") return resendVerification(request, env, session.user);
+  if (method === "GET" && path === "/api/billing/paddle-config") return paddleConfig(env, session);
 
   if (shouldRequireVerifiedEmail(env) && !session.user.email_verified_at && path !== "/api/me") return json({ error: "Email verification required" }, 403);
 
@@ -447,6 +450,14 @@ async function exportZipPack(request: Request, env: Env, userId: string, proofPa
   return new Response(body, { headers: { ...securityHeaders(), "Content-Type": "application/zip", "Cache-Control": "no-store", "Content-Disposition": `attachment; filename="${archive.filename}"` } });
 }
 
+function paddleConfig(env: Env, session: SessionContext): Response {
+  const config = getPaddleCheckoutConfig(env);
+  return json({
+    ...config,
+    customer: { email: session.user.email },
+    organization: { id: session.organization.id, name: session.organization.name },
+  });
+}
 function userDto(user: UserRow) {
   return { id: user.id, email: user.email, name: user.name, email_verified_at: user.email_verified_at, created_at: user.created_at };
 }
@@ -496,9 +507,3 @@ function timingSafeEqual(a: string, b: string): boolean {
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
-
-
-
-
-
-

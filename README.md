@@ -10,15 +10,15 @@ Pricing is listed in EUR because EUDR is EU-driven and most target buyers are EU
 
 | Plan | Price | Best for | Included |
 | --- | ---: | --- | --- |
-| Starter | €49/month | Small importers and exporters preparing their first EUDR evidence packs | 1 user, 5 active proof packs, supplier upload links, basic ZIP/PDF export |
-| Growth | €149/month | Recurring shipments and teams that need a repeatable supplier evidence workflow | 3-5 users, 25 active proof packs, supplier portal, audit trail, branded exports |
-| Consultant | €399/month | Compliance consultants, brokers, and operators managing multiple clients | 15 users, 100+ proof packs, multi-client workspace, bulk CSV import, priority support |
+| Starter | ï¿½49/month | Small importers and exporters preparing their first EUDR evidence packs | 1 user, 5 active proof packs, supplier upload links, basic ZIP/PDF export |
+| Growth | ï¿½149/month | Recurring shipments and teams that need a repeatable supplier evidence workflow | 3-5 users, 25 active proof packs, supplier portal, audit trail, branded exports |
+| Consultant | ï¿½399/month | Compliance consultants, brokers, and operators managing multiple clients | 15 users, 100+ proof packs, multi-client workspace, bulk CSV import, priority support |
 
 Usage and higher-touch options:
 
-- €99 one-time single proof pack export
-- €25 per extra active proof pack
-- Enterprise from €1,000/month for SSO, API access, custom retention, dedicated onboarding, and future ERP or TRACES workflows
+- ï¿½99 one-time single proof pack export
+- ï¿½25 per extra active proof pack
+- Enterprise from ï¿½1,000/month for SSO, API access, custom retention, dedicated onboarding, and future ERP or TRACES workflows
 
 Plan limits are enforced server-side. Starter, Growth, and Consultant cap active proof packs at 5, 25, and 100 respectively, and cap seats at 1, 5, and 15. Enterprise has unlimited caps. Extra proof packs are represented by `organizations.extra_proof_pack_allowance`, which increases the active proof pack limit without changing the base plan.
 
@@ -67,6 +67,43 @@ npm run db:migrate:staging
 npm run deploy:staging
 ```
 
+## Cloudflare Environment Variables
+
+Set non-secret environment variables in `wrangler.jsonc` or the Cloudflare dashboard. Set secrets with `wrangler secret put <NAME>` for each environment that needs them; use `--env staging` when setting staging secrets.
+
+| Name | Type | Required | Used for |
+| --- | --- | --- | --- |
+| `APP_ENV` | Var | Yes | Runtime environment label, such as `production` or `staging`. |
+| `APP_URL` | Var | Yes | Public base URL for OAuth redirects, verification links, and webhook setup notes. |
+| `SESSION_TTL_SECONDS` | Var | Yes | Session cookie lifetime; currently `604800`. |
+| `REQUIRE_VERIFIED_EMAIL` | Var | Recommended | Set to `true` after email delivery is configured. |
+| `PADDLE_ENVIRONMENT` | Var | Yes for billing | `sandbox` until live Paddle products are ready, then `production`. |
+| `EMAIL_WEBHOOK_URL` | Secret | Optional | Custom transactional email webhook for verification emails. |
+| `RESEND_API_KEY` | Secret | Optional | Resend email delivery; pair with `EMAIL_FROM`. |
+| `EMAIL_FROM` | Secret | Optional | Sender address for Resend email delivery. |
+| `GOOGLE_CLIENT_ID` | Secret | Optional | Enables Google OAuth login when paired with `GOOGLE_CLIENT_SECRET`. |
+| `GOOGLE_CLIENT_SECRET` | Secret | Optional | Secret for Google OAuth login. |
+| `PADDLE_CLIENT_TOKEN` | Secret | Required for checkout | Paddle.js client token returned to signed-in users for checkout. |
+| `PADDLE_PRICE_STARTER` | Secret | Required for checkout | Paddle recurring price ID for Starter. |
+| `PADDLE_PRICE_GROWTH` | Secret | Required for checkout | Paddle recurring price ID for Growth. |
+| `PADDLE_PRICE_CONSULTANT` | Secret | Required for checkout | Paddle recurring price ID for Consultant. |
+| `PADDLE_PRICE_EXTRA_PROOF_PACK` | Secret | Optional | Paddle price ID for extra proof-pack add-ons. |
+| `PADDLE_WEBHOOK_SECRET` | Secret | Required for billing sync | Verifies Paddle webhook signatures. |
+
+Useful setup commands:
+
+```bash
+wrangler secret put GOOGLE_CLIENT_ID
+wrangler secret put GOOGLE_CLIENT_SECRET
+wrangler secret put PADDLE_CLIENT_TOKEN
+wrangler secret put PADDLE_PRICE_STARTER
+wrangler secret put PADDLE_PRICE_GROWTH
+wrangler secret put PADDLE_PRICE_CONSULTANT
+wrangler secret put PADDLE_PRICE_EXTRA_PROOF_PACK
+wrangler secret put PADDLE_WEBHOOK_SECRET
+```
+
+For staging, append `--env staging` to each `wrangler secret put` command.
 Secrets should be set with Wrangler prompts, never committed. Email verification delivery is production-ready when one of these configurations is present:
 
 ```bash
@@ -86,6 +123,26 @@ wrangler secret put GOOGLE_CLIENT_SECRET
 ```
 
 A custom domain requires adding a DNS zone to the Cloudflare account, then adding the hostname route/custom domain in `wrangler.jsonc`.
+
+
+## Paddle Billing
+
+Paddle checkout is wired for the Starter, Growth, and Consultant monthly plans. The browser loads Paddle.js only when a signed-in user clicks a pricing button, then opens Paddle Checkout with `customData.organizationId` and `customData.plan` so webhooks can update the correct organization.
+
+Create recurring Paddle prices in EUR, then set these Worker secrets or vars per environment:
+
+```bash
+wrangler secret put PADDLE_CLIENT_TOKEN
+wrangler secret put PADDLE_PRICE_STARTER
+wrangler secret put PADDLE_PRICE_GROWTH
+wrangler secret put PADDLE_PRICE_CONSULTANT
+wrangler secret put PADDLE_PRICE_EXTRA_PROOF_PACK
+wrangler secret put PADDLE_WEBHOOK_SECRET
+```
+
+`PADDLE_ENVIRONMENT` defaults to `sandbox` in `wrangler.jsonc`; change it to `production` when live Paddle products are ready. Configure Paddle webhooks to call `${APP_URL}/api/billing/paddle-webhook` and subscribe to `transaction.completed`, `subscription.created`, `subscription.updated`, and `subscription.canceled`.
+
+Incoming webhooks are idempotent by Paddle `event_id`, verified with the `Paddle-Signature` HMAC, and update `organizations.billing_plan` plus Paddle customer/subscription metadata. Existing server-side plan limits continue to enforce active proof pack and user caps after the billing plan changes.
 
 ## Features
 
@@ -122,7 +179,7 @@ The Worker uses bindings directly rather than Cloudflare REST APIs.
 
 ## Roadmap
 
-- Stripe billing
+- Paddle customer portal and billing history UI
 - Mapbox or Leaflet polygon and GeoJSON support
 - Country-risk data integration
 - EU TRACES or EUDR system integration if applicable and available
@@ -143,4 +200,3 @@ The Worker uses bindings directly rather than Cloudflare REST APIs.
 - `migrations`: D1 schema
 - `scripts/seed.ts`: local demo seed
 - `docs`: product notes
-
