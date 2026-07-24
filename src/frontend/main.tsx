@@ -165,6 +165,12 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
       .catch(() => setPaddle(null));
   }, []);
 
+  function scrollToHow(event: React.MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    document.getElementById("how")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#how`);
+  }
+
   const tiers = [
     {
       planId: "starter" as const,
@@ -223,7 +229,7 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
     }
   }
   return (
-    <main className="min-h-screen bg-flax text-ink">
+    <main className="landing-shell min-h-screen text-ink">
       <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
         <a className="flex items-center gap-2 font-semibold" href="/">
           <ShieldCheck className="h-6 w-6 text-leaf" /> EUDR ProofPack
@@ -235,8 +241,8 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
       </nav>
       {!pricingOnly && (
         <section className="mx-auto grid max-w-7xl gap-10 px-5 pb-12 pt-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-          <div>
-            <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm text-leaf shadow-sm">
+          <div className="fade-up">
+            <p className="pulse-soft mb-4 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm text-leaf shadow-sm">
               <Sprout className="h-4 w-4" /> Due-diligence support for regulated commodities
             </p>
             <h1 className="max-w-4xl text-5xl font-semibold leading-tight tracking-normal sm:text-6xl">Create buyer-ready EUDR evidence packs in minutes</h1>
@@ -244,18 +250,19 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
               Collect geolocation, supplier declarations, product records, and due-diligence documents in one shareable packet for importers and suppliers.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <a href="/login" className="inline-flex items-center gap-2 rounded-md bg-leaf px-5 py-3 font-medium text-white shadow-soft">
+              <a href="/login" className="accent-band inline-flex items-center gap-2 rounded-md px-5 py-3 font-medium text-ink shadow-soft">
                 Create free proof pack <ArrowRight className="h-4 w-4" />
               </a>
-              <a href="#how" className="inline-flex items-center rounded-md border border-ink/15 px-5 py-3 font-medium">How it works</a>
+              <a href="#how" onClick={scrollToHow} className="inline-flex items-center rounded-md border border-ink/15 px-5 py-3 font-medium">How it works</a>
             </div>
           </div>
-          <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-soft">
+          <div className="float-soft rounded-lg border border-ink/10 bg-white/95 p-5 shadow-soft">
             <div className="mb-4 flex items-center justify-between">
               <span className="text-sm font-medium text-ink/60">Proof Pack Summary</span>
-              <span className="rounded-full bg-moss/15 px-3 py-1 text-xs font-semibold text-leaf">78% ready</span>
+              <span className="pulse-soft rounded-full bg-moss/15 px-3 py-1 text-xs font-semibold text-leaf">78% ready</span>
             </div>
             <div className="space-y-3">
+              <div className="summary-meter h-2 rounded-full" />
               {["Supplier declaration", "Plot coordinates", "Land-use evidence", "Risk notes"].map((item, index) => (
                 <div key={item} className="flex items-center justify-between rounded-md border border-steel/70 p-3">
                   <span className="flex items-center gap-2"><Check className="h-4 w-4 text-leaf" /> {item}</span>
@@ -269,7 +276,7 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
       <section className="mx-auto max-w-7xl px-5 py-10">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {["coffee", "cocoa", "wood", "rubber", "soy", "cattle", "palm oil"].map((item) => (
-            <div key={item} className="rounded-lg border border-ink/10 bg-white p-4">
+            <div key={item} className="lift-card rounded-lg border border-ink/10 bg-white/95 p-4">
               <Layers3 className="mb-3 h-5 w-5 text-clay" />
               <h3 className="font-semibold capitalize">{item}</h3>
               <p className="mt-1 text-sm text-ink/65">Evidence packet workflows for common EUDR readiness records.</p>
@@ -277,10 +284,10 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
           ))}
         </div>
       </section>
-      <section id="how" className="bg-white py-14">
+      <section id="how" className="scroll-mt-6 bg-white/90 py-14">
         <div className="mx-auto grid max-w-7xl gap-4 px-5 md:grid-cols-3">
           {["Collect", "Verify", "Export/share"].map((step, index) => (
-            <div key={step} className="border-l-4 border-leaf bg-flax p-5">
+            <div key={step} className="lift-card border-l-4 border-leaf bg-flax p-5">
               <span className="text-sm font-semibold text-clay">0{index + 1}</span>
               <h2 className="mt-2 text-xl font-semibold">{step}</h2>
               <p className="mt-2 text-ink/65">Guide importers and suppliers from missing fields to buyer-ready documentation.</p>
@@ -297,13 +304,13 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
               Start self-serve, invite suppliers, and export buyer-ready evidence bundles without waiting for an enterprise implementation.
             </p>
           </div>
-          <a href="/login" className="inline-flex items-center gap-2 rounded-md bg-leaf px-5 py-3 font-medium text-white shadow-soft">
+          <a href="/login" className="accent-band inline-flex items-center gap-2 rounded-md px-5 py-3 font-medium text-ink shadow-soft">
             Start with Growth <ArrowRight className="h-4 w-4" />
           </a>
         </div>
         <div className="mt-7 grid gap-4 lg:grid-cols-3">
           {tiers.map((tier) => (
-            <div key={tier.name} className={`rounded-lg border bg-white p-5 ${tier.highlighted ? "border-leaf shadow-soft" : "border-ink/10"}`}>
+            <div key={tier.name} className={`lift-card rounded-lg border bg-white/95 p-5 ${tier.highlighted ? "border-leaf shadow-soft" : "border-ink/10"}`}>
               <div className="flex items-start justify-between gap-3">
                 <h3 className="text-lg font-semibold">{tier.name}</h3>
                 {tier.highlighted && <span className="rounded-full bg-leaf/10 px-3 py-1 text-xs font-semibold text-leaf">Best fit</span>}
@@ -327,18 +334,18 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
         </div>
         {checkoutMessage && <p className="mt-4 rounded-md border border-clay/25 bg-white px-4 py-3 text-sm text-clay">{checkoutMessage}</p>}
         <div className="mt-5 grid gap-4 lg:grid-cols-3">
-          <div className="rounded-lg border border-ink/10 bg-white p-5">
+          <div className="lift-card rounded-lg border border-ink/10 bg-white/95 p-5">
             <h3 className="font-semibold">Pay-as-you-go</h3>
             <p className="mt-2 text-sm text-ink/65">For one-off needs and seasonal EUDR work.</p>
             <p className="mt-4 text-2xl font-semibold">&euro;99<span className="text-sm font-medium text-ink/55"> single proof pack</span></p>
             <p className="mt-2 text-sm text-ink/65">Extra active proof packs are &euro;25 each.</p>
           </div>
-          <div className="rounded-lg border border-ink/10 bg-white p-5">
+          <div className="lift-card rounded-lg border border-ink/10 bg-white/95 p-5">
             <h3 className="font-semibold">Enterprise</h3>
             <p className="mt-2 text-sm text-ink/65">For SSO, API access, custom retention, dedicated onboarding, and future ERP or TRACES workflows.</p>
             <p className="mt-4 text-2xl font-semibold">From &euro;1,000<span className="text-sm font-medium text-ink/55">/mo</span></p>
           </div>
-          <div className="rounded-lg border border-ink/10 bg-flax p-5">
+          <div className="lift-card rounded-lg border border-ink/10 bg-flax p-5">
             <h3 className="font-semibold">Launch positioning</h3>
             <p className="mt-2 text-sm leading-6 text-ink/65">
               Built for SMEs, suppliers, and consultants who need audit-ready evidence packs before they need a full ESG operating system.
