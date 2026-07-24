@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "eudr-proofpack",
   "main": "src/worker/index.ts",
-  "compatibility_date": "2026-07-05",
+  "compatibility_date": "2026-07-24",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "directory": "./dist",
@@ -18,8 +18,8 @@
     "APP_ENV": "production",
     "APP_URL": "https://eudr-proofpack.torahmike.workers.dev",
     "SESSION_TTL_SECONDS": "604800",
-    "REQUIRE_VERIFIED_EMAIL": "false",
-    "PADDLE_ENVIRONMENT": "sandbox"
+    "REQUIRE_VERIFIED_EMAIL": "true",
+    "PADDLE_ENVIRONMENT": "production"
   },
   "d1_databases": [
     {

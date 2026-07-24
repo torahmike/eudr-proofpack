@@ -22,6 +22,8 @@ export interface BillingUsage {
 
 export interface BillingSummary {
   plan: PlanDefinition;
+  status: string;
+  billingAccessActive: boolean;
   usage: BillingUsage;
   extraProofPackAllowance: number;
   effectiveLimits: PlanLimits;
@@ -68,17 +70,21 @@ export function getPlan(planId: string | null | undefined): PlanDefinition {
 
 export async function getBillingSummary(env: Env, organization: OrganizationRow): Promise<BillingSummary> {
   const plan = getPlan(organization.billing_plan);
+  const status = organization.billing_status ?? "active";
+  const billingAccessActive = status === "active" || status === "trialing";
   const usage = await getBillingUsage(env, organization.id);
   const extraProofPackAllowance = Math.max(0, organization.extra_proof_pack_allowance ?? 0);
   const activeProofPacks = plan.limits.activeProofPacks === null ? null : plan.limits.activeProofPacks + extraProofPackAllowance;
   const effectiveLimits = { activeProofPacks, members: plan.limits.members };
   return {
     plan,
+    status,
+    billingAccessActive,
     usage,
     extraProofPackAllowance,
     effectiveLimits,
-    canCreateProofPack: withinLimit(usage.activeProofPacks, effectiveLimits.activeProofPacks),
-    canAddMember: withinLimit(usage.members, effectiveLimits.members),
+    canCreateProofPack: billingAccessActive && withinLimit(usage.activeProofPacks, effectiveLimits.activeProofPacks),
+    canAddMember: billingAccessActive && withinLimit(usage.members, effectiveLimits.members),
   };
 }
 
@@ -88,7 +94,9 @@ export async function checkProofPackLimit(env: Env, organization: OrganizationRo
   return {
     ok: false,
     summary,
-    message: `${summary.plan.name} includes ${summary.effectiveLimits.activeProofPacks} active proof packs. Archive a pack, add extra proof packs, or upgrade to create another.`,
+    message: summary.billingAccessActive
+      ? `${summary.plan.name} includes ${summary.effectiveLimits.activeProofPacks} active proof packs. Archive a pack, add extra proof packs, or upgrade to create another.`
+      : `Billing is ${summary.status}. Update billing before creating another proof pack.`,
   };
 }
 
@@ -98,7 +106,9 @@ export async function checkMemberLimit(env: Env, organization: OrganizationRow):
   return {
     ok: false,
     summary,
-    message: `${summary.plan.name} includes ${summary.effectiveLimits.members} users. Upgrade before inviting another teammate.`,
+    message: summary.billingAccessActive
+      ? `${summary.plan.name} includes ${summary.effectiveLimits.members} users. Upgrade before inviting another teammate.`
+      : `Billing is ${summary.status}. Update billing before inviting another teammate.`,
   };
 }
 

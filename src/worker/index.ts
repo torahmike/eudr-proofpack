@@ -2,14 +2,14 @@ import { ZodError } from "zod";
 import { createAndSendVerification, shouldRequireVerifiedEmail, verificationDto, verifyEmailToken } from "./auth/emailVerification";
 import { clearOAuthStateCookie, completeGoogleOAuth, oauthProviders, startGoogleOAuth } from "./auth/oauth";
 import { clearSessionCookie, isResponse, json, requireSession, secureToken, securityHeaders, sessionCookie, withSecurityHeaders } from "./auth/session";
-import { checkProofPackLimit, getBillingSummary } from "./billing/plans";
+import { checkMemberLimit, checkProofPackLimit, getBillingSummary } from "./billing/plans";
 import { getPaddleCheckoutConfig, handlePaddleWebhook } from "./billing/paddle";
-import { addActivity, checkRateLimit, ensurePackAccess, getDocuments, getPackRole, getPlots, getRecentActivity, listProofPacks, revokeSession } from "./db/queries";
+import { addActivity, checkRateLimit, ensurePackAccess, getDocuments, getPlots, getRecentActivity, listOrganizationMembers, listProofPacks, revokeSession } from "./db/queries";
 import type { DocumentRow, MemberRole, PlotRow, ProofPackRow, SessionContext, UserRow } from "./db/types";
 import { computeReadiness } from "./routes/score";
 import { storeUpload } from "./storage/files";
 import { buildProofPackZip } from "./export/zip";
-import { documentMetaSchema, feedbackSchema, loginSchema, plotSchema, proofPackCreateSchema, proofPackPatchSchema, supplierUpdateSchema, verifyEmailSchema } from "./validation/schemas";
+import { documentMetaSchema, feedbackSchema, loginSchema, plotSchema, proofPackCreateSchema, proofPackPatchSchema, supplierUpdateSchema, teamMemberSchema, verifyEmailSchema } from "./validation/schemas";
 
 interface ZipExportMessage {
   proofPackId: string;
@@ -42,10 +42,13 @@ export default {
   },
   async queue(batch: MessageBatch<ZipExportMessage>, env: Env): Promise<void> {
     for (const message of batch.messages) {
-      console.log(JSON.stringify({ level: "info", event: "zip_export_placeholder", proofPackId: message.body.proofPackId }));
+      const pack = await env.DB.prepare(`SELECT * FROM proof_packs WHERE id = ?`).bind(message.body.proofPackId).first<ProofPackRow>();
+      if (pack) {
+        const archive = await buildProofPackZip(env, pack);
+        await addActivity(env, pack.organization_id, pack.id, message.body.requestedByUserId, "proof_pack.zip_prepared", `Prepared ZIP export in the background with ${archive.skippedFiles.length} skipped file(s)`);
+      }
       message.ack();
     }
-    await Promise.resolve(env);
   },
 };
 
@@ -84,8 +87,16 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     const packs = await listProofPacks(env, session.organization.id);
     const activity = await getRecentActivity(env, session.organization.id);
     const billing = await getBillingSummary(env, session.organization);
-    return json({ user: userDto(session.user), verification: verificationDto(session.user), organization: session.organization, membership: session.membership, stats: buildStats(packs), activity, billing });
+    const teamMembers = await listOrganizationMembers(env, session.organization.id);
+    return json({ user: userDto(session.user), verification: verificationDto(session.user), organization: session.organization, membership: session.membership, stats: buildStats(packs), activity, billing, teamMembers });
   }
+
+  if (method === "GET" && path === "/api/team") {
+    const [teamMembers, billing] = await Promise.all([listOrganizationMembers(env, session.organization.id), getBillingSummary(env, session.organization)]);
+    return json({ teamMembers, billing });
+  }
+
+  if (method === "POST" && path === "/api/team") return inviteTeamMember(request, env, session);
 
   if (method === "GET" && path === "/api/proof-packs") {
     const packs = await Promise.all((await listProofPacks(env, session.organization.id)).map(async (pack) => enrichPack(env, pack)));
@@ -142,14 +153,43 @@ async function route(request: Request, env: Env, ctx: ExecutionContext, url: URL
     const packId = path.split("/")[3] ?? "";
     const pack = await ensurePackAccess(env, packId, session.user.id);
     if (!pack) return json({ error: "Not found" }, 404);
-    await addActivity(env, pack.organization_id, pack.id, session.user.id, "export.zip_ready", "Prepared ZIP export URL", request);
-    await Promise.resolve(ctx);
-    return json({ queued: false, url: `${env.APP_URL}/api/proof-packs/${pack.id}/zip-export` });
+    await env.ZIP_EXPORT_QUEUE.send({ proofPackId: pack.id, requestedByUserId: session.user.id });
+    await addActivity(env, pack.organization_id, pack.id, session.user.id, "export.zip_queued", "Queued ZIP export preparation", request);
+    return json({ queued: true, message: "ZIP export queued. Use direct ZIP download when you need the archive immediately." }, 202);
   }
 
   return json({ error: "Not found" }, 404);
 }
 
+async function inviteTeamMember(request: Request, env: Env, session: SessionContext): Promise<Response> {
+  if (!canAdmin(session.membership.role)) return json({ error: "Insufficient permissions" }, 403);
+  const input = teamMemberSchema.parse(await request.json());
+  const email = input.email.toLowerCase();
+  let user = await env.DB.prepare(`SELECT * FROM users WHERE email = ?`).bind(email).first<UserRow>();
+  if (!user) {
+    const limit = await checkMemberLimit(env, session.organization);
+    if (!limit.ok) return json({ error: limit.message, billing: limit.summary }, 402);
+    const id = crypto.randomUUID();
+    await env.DB.prepare(`INSERT INTO users (id, email, name) VALUES (?, ?, ?)`).bind(id, email, input.name ?? null).run();
+    user = await env.DB.prepare(`SELECT * FROM users WHERE id = ?`).bind(id).first<UserRow>();
+  }
+  if (!user) return json({ error: "Could not create teammate" }, 500);
+  const existingMembership = await env.DB.prepare(`SELECT role FROM organization_members WHERE organization_id = ? AND user_id = ?`).bind(session.organization.id, user.id).first<{ role: MemberRole }>();
+  if (existingMembership?.role === "owner") return json({ error: "Owner role cannot be changed from team invites" }, 400);
+  if (!existingMembership) {
+    const limit = await checkMemberLimit(env, session.organization);
+    if (!limit.ok) return json({ error: limit.message, billing: limit.summary }, 402);
+  }
+  await env.DB.prepare(
+    `INSERT INTO organization_members (id, organization_id, user_id, role) VALUES (?, ?, ?, ?)
+     ON CONFLICT(organization_id, user_id) DO UPDATE SET role = excluded.role`,
+  )
+    .bind(crypto.randomUUID(), session.organization.id, user.id, input.role)
+    .run();
+  await addActivity(env, session.organization.id, null, session.user.id, "team.member_upserted", `Added ${email} as ${input.role}`, request);
+  const [teamMembers, billing] = await Promise.all([listOrganizationMembers(env, session.organization.id), getBillingSummary(env, session.organization)]);
+  return json({ teamMembers, billing }, 201);
+}
 async function submitFeedback(request: Request, env: Env): Promise<Response> {
   const identity = `${request.headers.get("CF-Connecting-IP") ?? "unknown"}:${request.headers.get("User-Agent") ?? "unknown"}`;
   if (!(await checkRateLimit(env, "feedback.submit", identity, 5, 3600))) return json({ error: "Too many feedback submissions" }, 429);
@@ -184,6 +224,11 @@ async function login(request: Request, env: Env, ctx: ExecutionContext): Promise
   let user = existing;
   if (existing?.password_hash && existing.password_salt) {
     if (!(await verifyPassword(input.password, existing.password_salt, existing.password_hash))) return json({ error: "Invalid email or password" }, 401);
+    if (shouldUpgradePasswordHash(existing.password_hash)) {
+      const password = await hashPassword(input.password);
+      await env.DB.prepare(`UPDATE users SET password_hash = ?, password_salt = ?, password_updated_at = CURRENT_TIMESTAMP WHERE id = ?`).bind(password.hash, password.salt, existing.id).run();
+      user = { ...existing, password_hash: password.hash, password_salt: password.salt, password_updated_at: new Date().toISOString() };
+    }
   } else if (existing) {
     const password = await hashPassword(input.password);
     await env.DB.prepare(`UPDATE users SET password_hash = ?, password_salt = ?, password_updated_at = CURRENT_TIMESTAMP, name = COALESCE(?, name) WHERE id = ?`).bind(password.hash, password.salt, input.name ?? null, existing.id).run();
@@ -485,14 +530,34 @@ async function hashPassword(password: string): Promise<PasswordHash> {
 }
 
 async function verifyPassword(password: string, salt: string, expectedHash: string): Promise<boolean> {
-  const actualHash = await derivePassword(password, salt);
+  const actualHash = expectedHash.startsWith("sha256:") ? await deriveLegacyPassword(password, salt) : await derivePassword(password, salt);
   return timingSafeEqual(actualHash, expectedHash);
 }
 
 async function derivePassword(password: string, salt: string): Promise<string> {
+  const iterations = 310000;
+  const keyMaterial = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const saltBytes = hexToBytes(salt);
+  const saltBuffer = saltBytes.buffer.slice(saltBytes.byteOffset, saltBytes.byteOffset + saltBytes.byteLength) as ArrayBuffer;
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: saltBuffer, iterations }, keyMaterial, 256);
+  return `pbkdf2:${iterations}:${bytesToHex(new Uint8Array(bits))}`;
+}
+
+async function deriveLegacyPassword(password: string, salt: string): Promise<string> {
   const material = new TextEncoder().encode(`${salt}:${password}`);
   const digest = await crypto.subtle.digest("SHA-256", material);
   return `sha256:${bytesToHex(new Uint8Array(digest))}`;
+}
+
+function shouldUpgradePasswordHash(hash: string): boolean {
+  return !hash.startsWith("pbkdf2:310000:");
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  if (hex.length % 2 !== 0) throw new Error("Invalid password salt");
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let index = 0; index < bytes.length; index += 1) bytes[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
+  return bytes;
 }
 
 function timingSafeEqual(a: string, b: string): boolean {
