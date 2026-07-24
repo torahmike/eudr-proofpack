@@ -165,6 +165,12 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
       .catch(() => setPaddle(null));
   }, []);
 
+  function scrollToHow(event: React.MouseEvent<HTMLAnchorElement>) {
+    event.preventDefault();
+    document.getElementById("how")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#how`);
+  }
+
   const tiers = [
     {
       planId: "starter" as const,
@@ -247,7 +253,7 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
               <a href="/login" className="inline-flex items-center gap-2 rounded-md bg-leaf px-5 py-3 font-medium text-white shadow-soft">
                 Create free proof pack <ArrowRight className="h-4 w-4" />
               </a>
-              <a href="#how" className="inline-flex items-center rounded-md border border-ink/15 px-5 py-3 font-medium">How it works</a>
+              <a href="#how" onClick={scrollToHow} className="inline-flex items-center rounded-md border border-ink/15 px-5 py-3 font-medium">How it works</a>
             </div>
           </div>
           <div className="rounded-lg border border-ink/10 bg-white p-5 shadow-soft">
@@ -277,7 +283,7 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
           ))}
         </div>
       </section>
-      <section id="how" className="bg-white py-14">
+      <section id="how" className="scroll-mt-6 bg-white py-14">
         <div className="mx-auto grid max-w-7xl gap-4 px-5 md:grid-cols-3">
           {["Collect", "Verify", "Export/share"].map((step, index) => (
             <div key={step} className="border-l-4 border-leaf bg-flax p-5">
