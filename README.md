@@ -10,15 +10,15 @@ Pricing is listed in EUR because EUDR is EU-driven and most target buyers are EU
 
 | Plan | Price | Best for | Included |
 | --- | ---: | --- | --- |
-| Starter | �49/month | Small importers and exporters preparing their first EUDR evidence packs | 1 user, 5 active proof packs, supplier upload links, basic ZIP/PDF export |
-| Growth | �149/month | Recurring shipments and teams that need a repeatable supplier evidence workflow | 3-5 users, 25 active proof packs, supplier portal, audit trail, branded exports |
-| Consultant | �399/month | Compliance consultants, brokers, and operators managing multiple clients | 15 users, 100+ proof packs, multi-client workspace, bulk CSV import, priority support |
+| Starter | EUR 49/month | Small importers and exporters preparing their first EUDR evidence packs | 1 user, 5 active proof packs, supplier upload links, ZIP and printable summary export |
+| Growth | EUR 149/month | Recurring shipments and teams that need a repeatable supplier evidence workflow | 3-5 users, 25 active proof packs, supplier portal, audit trail, branded exports |
+| Consultant | EUR 399/month | Compliance consultants, brokers, and operators managing multiple clients | 15 users, 100+ proof packs, multi-client workspace, bulk CSV import, priority support |
 
 Usage and higher-touch options:
 
-- �99 one-time single proof pack export
-- �25 per extra active proof pack
-- Enterprise from �1,000/month for SSO, API access, custom retention, dedicated onboarding, and future ERP or TRACES workflows
+- EUR 99 one-time single proof pack export
+- EUR 25 per extra active proof pack
+- Enterprise from EUR 1,000/month for SSO, API access, custom retention, dedicated onboarding, and future ERP or TRACES workflows
 
 Plan limits are enforced server-side. Starter, Growth, and Consultant cap active proof packs at 5, 25, and 100 respectively, and cap seats at 1, 5, and 15. Enterprise has unlimited caps. Extra proof packs are represented by `organizations.extra_proof_pack_allowance`, which increases the active proof pack limit without changing the base plan.
 
@@ -76,8 +76,8 @@ Set non-secret environment variables in `wrangler.jsonc` or the Cloudflare dashb
 | `APP_ENV` | Var | Yes | Runtime environment label, such as `production` or `staging`. |
 | `APP_URL` | Var | Yes | Public base URL for OAuth redirects, verification links, and webhook setup notes. |
 | `SESSION_TTL_SECONDS` | Var | Yes | Session cookie lifetime; currently `604800`. |
-| `REQUIRE_VERIFIED_EMAIL` | Var | Recommended | Set to `true` after email delivery is configured. |
-| `PADDLE_ENVIRONMENT` | Var | Yes for billing | `sandbox` until live Paddle products are ready, then `production`. |
+| `REQUIRE_VERIFIED_EMAIL` | Var | Yes | Production config sets this to `true`; keep staging `false` until email delivery is configured. |
+| `PADDLE_ENVIRONMENT` | Var | Yes for billing | Production uses `production`; staging uses `sandbox`. |
 | `EMAIL_WEBHOOK_URL` | Secret | Optional | Custom transactional email webhook for verification emails. |
 | `RESEND_API_KEY` | Secret | Optional | Resend email delivery; pair with `EMAIL_FROM`. |
 | `EMAIL_FROM` | Secret | Optional | Sender address for Resend email delivery. |
@@ -113,7 +113,7 @@ wrangler secret put RESEND_API_KEY
 wrangler secret put EMAIL_FROM
 ```
 
-Set `REQUIRE_VERIFIED_EMAIL` to `true` after email delivery is configured.
+Production requires verified email. Keep `REQUIRE_VERIFIED_EMAIL=false` only in staging or local development while email delivery is being configured.
 
 Google OAuth is optional and appears on `/login` only when both secrets are present. Configure the authorized redirect URI in Google Cloud as `${APP_URL}/api/auth/oauth/google/callback`, then set:
 
@@ -140,7 +140,7 @@ wrangler secret put PADDLE_PRICE_EXTRA_PROOF_PACK
 wrangler secret put PADDLE_WEBHOOK_SECRET
 ```
 
-`PADDLE_ENVIRONMENT` defaults to `sandbox` in `wrangler.jsonc`; change it to `production` when live Paddle products are ready. Configure Paddle webhooks to call `${APP_URL}/api/billing/paddle-webhook` and subscribe to `transaction.completed`, `subscription.created`, `subscription.updated`, and `subscription.canceled`.
+`PADDLE_ENVIRONMENT` is `production` in `wrangler.jsonc` and `sandbox` in staging. Configure Paddle webhooks to call `${APP_URL}/api/billing/paddle-webhook` and subscribe to `transaction.completed`, `subscription.created`, `subscription.updated`, and `subscription.canceled`.
 
 Incoming webhooks are idempotent by Paddle `event_id`, verified with the `Paddle-Signature` HMAC, and update `organizations.billing_plan` plus Paddle customer/subscription metadata. Existing server-side plan limits continue to enforce active proof pack and user caps after the billing plan changes.
 
@@ -173,7 +173,7 @@ The Worker uses bindings directly rather than Cloudflare REST APIs.
 - Email verification can create secure tokens immediately; actual delivery requires `EMAIL_WEBHOOK_URL` or Resend secrets.
 - Google OAuth requires a Google Cloud OAuth client with `${APP_URL}/api/auth/oauth/google/callback` as an authorized redirect URI.
 - A custom domain cannot be bound until the Cloudflare account has a DNS zone for the desired hostname.
-- PDF export is represented by a printable/shareable summary, JSON download, and ZIP archive.
+- PDF export is not implemented yet; users can download JSON, ZIP archives, and a printable/shareable summary.
 - Map preview validates coordinates but does not render polygons yet.
 - The MVP keeps team permissions simple after initial owner membership.
 

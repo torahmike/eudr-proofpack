@@ -84,6 +84,12 @@ export const supplierUpdateSchema = proofPackPatchSchema.pick({
 
 export type ProofPackPatch = z.infer<typeof proofPackPatchSchema>;
 
+export const teamMemberSchema = z.object({
+  email,
+  name: z.string().trim().max(120).optional(),
+  role: z.enum(["admin", "member", "viewer"]).default("member"),
+});
+
 
 export const feedbackSchema = z.object({
   category: z.enum(["idea", "bug", "confusing", "praise"]).default("idea"),

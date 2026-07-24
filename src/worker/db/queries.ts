@@ -66,6 +66,19 @@ export async function getDocuments(env: Env, proofPackId: string): Promise<Docum
   return result.results;
 }
 
+
+export async function listOrganizationMembers(env: Env, organizationId: string): Promise<Array<{ id: string; user_id: string; email: string; name: string | null; role: OrganizationMemberRow["role"]; created_at: string }>> {
+  const result = await env.DB.prepare(
+    `SELECT organization_members.id, organization_members.user_id, users.email, users.name, organization_members.role, users.created_at
+     FROM organization_members
+     JOIN users ON users.id = organization_members.user_id
+     WHERE organization_members.organization_id = ?
+     ORDER BY CASE organization_members.role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 WHEN 'member' THEN 2 ELSE 3 END, users.email ASC`,
+  )
+    .bind(organizationId)
+    .all<{ id: string; user_id: string; email: string; name: string | null; role: OrganizationMemberRow["role"]; created_at: string }>();
+  return result.results;
+}
 export async function getRecentActivity(env: Env, organizationId: string): Promise<ActivityEventRow[]> {
   const result = await env.DB.prepare(`SELECT * FROM activity_events WHERE organization_id = ? ORDER BY created_at DESC LIMIT 8`)
     .bind(organizationId)

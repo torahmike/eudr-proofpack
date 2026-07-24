@@ -9,9 +9,13 @@ interface ZipBuildResult {
   skippedFiles: string[];
 }
 
+const maxZipInputBytes = 48 * 1024 * 1024;
+const maxSingleFileBytes = 24 * 1024 * 1024;
+
 export async function buildProofPackZip(env: Env, pack: ProofPackRow): Promise<ZipBuildResult> {
   const [plots, documents] = await Promise.all([getPlots(env, pack.id), getDocuments(env, pack.id)]);
   const skippedFiles: string[] = [];
+  let inputBytes = 0;
   const files: Record<string, Uint8Array> = {
     "proof-pack.json": strToU8(JSON.stringify({ proofPack: exportDto(pack, plots, documents), disclaimer: "EUDR readiness support only. Not legal advice or official certification." }, null, 2)),
     "README.txt": strToU8([
@@ -25,13 +29,23 @@ export async function buildProofPackZip(env: Env, pack: ProofPackRow): Promise<Z
   };
 
   for (const document of documents) {
+    if (document.size_bytes > maxSingleFileBytes) {
+      skippedFiles.push(`${document.original_filename} (skipped: file exceeds 24 MB ZIP limit)`);
+      continue;
+    }
+    if (inputBytes + document.size_bytes > maxZipInputBytes) {
+      skippedFiles.push(`${document.original_filename} (skipped: archive exceeds 48 MB ZIP limit)`);
+      continue;
+    }
     const object = await env.PROOF_PACK_FILES.get(document.r2_key);
     if (!object) {
       skippedFiles.push(document.original_filename);
       continue;
     }
     const path = `documents/${safePathSegment(document.document_type)}/${safePathSegment(document.original_filename)}`;
-    files[path] = new Uint8Array(await object.arrayBuffer());
+    const bytes = new Uint8Array(await object.arrayBuffer());
+    inputBytes += bytes.byteLength;
+    files[path] = bytes;
   }
 
   if (skippedFiles.length > 0) files["missing-files.json"] = strToU8(JSON.stringify({ skippedFiles }, null, 2));

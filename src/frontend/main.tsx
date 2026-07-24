@@ -102,16 +102,29 @@ interface MeResponse {
   user: { email: string; name: string | null; email_verified_at?: string | null };
   verification: { emailVerified: boolean; emailVerifiedAt: string | null };
   organization: { id: string; name: string };
+  membership: { role: "owner" | "admin" | "member" | "viewer" };
+  teamMembers: TeamMember[];
   stats: { total: number; byStatus: Record<Status, number> };
   activity: { id: string; message: string; event_type: string; created_at: string }[];
   billing: {
     plan: { id: string; name: string; priceMonthlyEur: number | null };
+    status: string;
+    billingAccessActive: boolean;
     usage: { activeProofPacks: number; totalProofPacks: number; members: number };
     extraProofPackAllowance: number;
     effectiveLimits: { activeProofPacks: number | null; members: number | null };
     canCreateProofPack: boolean;
     canAddMember: boolean;
   };
+}
+
+interface TeamMember {
+  id: string;
+  user_id: string;
+  email: string;
+  name: string | null;
+  role: "owner" | "admin" | "member" | "viewer";
+  created_at: string;
 }
 
 interface PaddleConfig {
@@ -177,7 +190,7 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
       name: "Starter",
       price: "\u20ac49",
       description: "For small importers and exporters preparing their first EUDR evidence packs.",
-      features: ["1 user", "5 active proof packs", "Supplier upload links", "Basic ZIP/PDF export"],
+      features: ["1 user", "5 active proof packs", "Supplier upload links", "ZIP and printable summary export"],
       highlighted: false,
     },
     {
@@ -695,13 +708,43 @@ function PlotsPanel({ pack, onChanged }: { pack: ProofPack; onChanged: () => Pro
         <div className="grid grid-cols-4 bg-flax p-3 text-sm font-medium"><span>Plot</span><span>Producer</span><span>Latitude</span><span>Longitude</span></div>
         {pack.plots.map((item) => <div key={item.id} className="grid grid-cols-4 border-t border-ink/10 p-3 text-sm"><span>{item.plot_name}</span><span>{item.producer_name}</span><span>{item.latitude}</span><span>{item.longitude}</span></div>)}
       </div>
-      <div className="mt-4 rounded-md border border-dashed border-ink/20 p-4 text-sm text-ink/60">
-        <MapPin className="mr-2 inline h-4 w-4" /> Map preview placeholder. Coordinates are validated server-side; polygon and GeoJSON map support is on the roadmap.
-      </div>
+      <PlotMapPreview plots={pack.plots} />
     </Panel>
   );
 }
 
+function PlotMapPreview({ plots }: { plots: Plot[] }) {
+  const validPlots = plots.filter((plot) => Number.isFinite(Number(plot.latitude)) && Number.isFinite(Number(plot.longitude)));
+  if (validPlots.length === 0) return <div className="mt-4 rounded-md border border-dashed border-ink/20 p-4 text-sm text-ink/60"><MapPin className="mr-2 inline h-4 w-4" /> Add plot coordinates to preview coverage.</div>;
+  const latitudes = validPlots.map((plot) => Number(plot.latitude));
+  const longitudes = validPlots.map((plot) => Number(plot.longitude));
+  const minLat = Math.min(...latitudes);
+  const maxLat = Math.max(...latitudes);
+  const minLon = Math.min(...longitudes);
+  const maxLon = Math.max(...longitudes);
+  const latSpan = Math.max(maxLat - minLat, 0.01);
+  const lonSpan = Math.max(maxLon - minLon, 0.01);
+  const project = (plot: Plot) => ({
+    x: 12 + ((Number(plot.longitude) - minLon) / lonSpan) * 76,
+    y: 88 - ((Number(plot.latitude) - minLat) / latSpan) * 76,
+  });
+  return (
+    <div className="mt-4 overflow-hidden rounded-md border border-ink/10 bg-flax">
+      <div className="flex items-center justify-between gap-3 border-b border-ink/10 px-4 py-3 text-sm">
+        <span className="inline-flex items-center gap-2 font-medium"><MapPin className="h-4 w-4 text-leaf" /> Coordinate coverage</span>
+        <span className="text-ink/55">{validPlots.length} plot{validPlots.length === 1 ? "" : "s"}</span>
+      </div>
+      <svg viewBox="0 0 100 100" className="h-56 w-full bg-[radial-gradient(circle_at_20%_20%,rgba(96,146,118,0.18),transparent_26%),linear-gradient(135deg,#f5efe3,#dce8e0)]" role="img" aria-label="Plot coordinate preview">
+        <path d="M8 78 C24 64 33 72 46 55 S72 31 92 22" fill="none" stroke="rgba(45,70,55,0.24)" strokeWidth="2" />
+        <path d="M4 32 C18 28 32 38 46 30 S76 18 96 34" fill="none" stroke="rgba(45,70,55,0.16)" strokeWidth="1.5" />
+        {validPlots.map((plot, index) => {
+          const point = project(plot);
+          return <g key={plot.id}><circle cx={point.x} cy={point.y} r="4.2" fill={index === 0 ? "#295f45" : "#b65f35"} /><circle cx={point.x} cy={point.y} r="7" fill="none" stroke="rgba(41,95,69,0.24)" strokeWidth="2" /></g>;
+        })}
+      </svg>
+    </div>
+  );
+}
 function DocumentsPanel({ pack, onChanged }: { pack: ProofPack; onChanged: () => Promise<void> }) {
   const [type, setType] = useState("supplier_declaration");
   const [notes, setNotes] = useState("");
@@ -878,6 +921,57 @@ function LinkBox({ title, url, onGenerate }: { title: string; url: string; onGen
 
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return <div className="rounded-lg border border-ink/10 bg-white p-4"><span className="block h-5 w-5 text-leaf">{icon}</span><p className="mt-3 text-2xl font-semibold">{value}</p><p className="text-sm text-ink/55">{label}</p></div>;
+}
+function TeamPanel({ me, onChanged }: { me: MeResponse; onChanged: () => Promise<void> }) {
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<TeamMember["role"]>("member");
+  const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+  const canInvite = (me.membership.role === "owner" || me.membership.role === "admin") && me.billing.canAddMember;
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setMessage("");
+    try {
+      await api("/api/team", { method: "POST", body: { email, role } });
+      setEmail("");
+      setMessage("Team member added.");
+      await onChanged();
+    } catch (caught) {
+      setMessage(caught instanceof Error ? caught.message : "Could not add teammate");
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <div className="mt-4 rounded-md border border-ink/10 bg-white p-3 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="font-medium">Team access</span>
+        <span className="text-ink/55">{me.teamMembers.length} users</span>
+      </div>
+      <div className="mt-3 space-y-2">
+        {me.teamMembers.map((member) => (
+          <div key={member.id} className="flex items-center justify-between gap-3 rounded-md bg-flax px-3 py-2">
+            <span className="min-w-0 truncate">{member.email}</span>
+            <span className="shrink-0 text-ink/55">{labelize(member.role)}</span>
+          </div>
+        ))}
+      </div>
+      <form onSubmit={submit} className="mt-3 grid gap-2">
+        <input value={email} onChange={(event) => setEmail(event.target.value)} className="rounded-md border border-ink/15 px-3 py-2" type="email" placeholder="teammate@example.com" disabled={!canInvite || saving} />
+        <select value={role} onChange={(event) => setRole(event.target.value as TeamMember["role"])} className="rounded-md border border-ink/15 bg-white px-3 py-2" disabled={!canInvite || saving}>
+          <option value="admin">Admin</option>
+          <option value="member">Member</option>
+          <option value="viewer">Viewer</option>
+        </select>
+        <button className="inline-flex items-center justify-center gap-2 rounded-md bg-ink px-3 py-2 font-medium text-white disabled:bg-ink/30" disabled={!canInvite || saving || !email}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Building2 className="h-4 w-4" />} Add teammate
+        </button>
+      </form>
+      {!canInvite && <p className="mt-2 text-ink/55">Upgrade or restore billing to invite more users.</p>}
+      {message && <p className="mt-2 text-clay">{message}</p>}
+    </div>
+  );
 }
 function PlanUsage({ billing }: { billing: MeResponse["billing"] }) {
   const proofPackLimit = billing.effectiveLimits.activeProofPacks === null ? "Unlimited" : billing.effectiveLimits.activeProofPacks;
