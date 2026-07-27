@@ -144,6 +144,22 @@ declare global {
 }
 const commodities = ["coffee", "cocoa", "wood", "rubber", "soy", "palm_oil", "cattle", "other"];
 const statuses: Status[] = ["draft", "waiting_for_supplier", "in_review", "buyer_ready", "archived"];
+const sectorCards = [
+  { name: "coffee", detail: "Smallholder plot files, supplier attestations, harvest records", accent: "#2f6b4f" },
+  { name: "cocoa", detail: "Farm coordinates, cooperative declarations, buyer packet history", accent: "#9f4d55" },
+  { name: "wood", detail: "Shipment records, species notes, chain-of-custody evidence", accent: "#7f5c3d" },
+  { name: "rubber", detail: "Producer declarations, plot evidence, shipment traceability", accent: "#2f6476" },
+  { name: "soy", detail: "Batch data, country-risk notes, supporting documentation", accent: "#d5a43f" },
+  { name: "cattle", detail: "Supplier updates, risk review, buyer-ready share links", accent: "#b96845" },
+  { name: "palm oil", detail: "Mill and supplier documentation assembled for importer review", accent: "#6f7f45" },
+];
+
+const workflowSteps = [
+  { title: "Collect", detail: "Guided intake for importer, supplier, product, plot, and evidence fields." },
+  { title: "Review", detail: "Readiness scoring highlights missing fields, risk notes, and supplier follow-up." },
+  { title: "Share", detail: "Tokenized buyer and supplier links keep the pack moving without spreadsheet sprawl." },
+];
+
 const docTypes = [
   ["supplier_declaration", "Supplier declaration"],
   ["land_use_evidence", "Land-use evidence"],
@@ -243,41 +259,41 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
   }
   return (
     <main className="landing-shell min-h-screen text-ink">
-      <nav className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
+      <nav className="top-nav mx-auto flex max-w-7xl items-center justify-between px-5 py-5">
         <a className="flex items-center gap-2 font-semibold" href="/">
-          <ShieldCheck className="h-6 w-6 text-leaf" /> EUDR ProofPack
+          <span className="brand-mark"><ShieldCheck className="h-5 w-5" /></span> EUDR ProofPack
         </a>
         <div className="flex items-center gap-3 text-sm">
           <a href="/pricing" className="hidden text-ink/70 sm:inline">Pricing</a>
-          <a href="/login" className="rounded-md border border-ink/15 px-3 py-2">Log in</a>
+          <a href="/login" className="btn-quiet rounded-md px-3 py-2">Log in</a>
         </div>
       </nav>
       {!pricingOnly && (
-        <section className="mx-auto grid max-w-7xl gap-10 px-5 pb-12 pt-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+        <section className="mx-auto grid max-w-7xl gap-10 px-5 pb-12 pt-8 lg:grid-cols-[1.04fr_0.96fr] lg:items-center">
           <div className="fade-up">
-            <p className="pulse-soft mb-4 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm text-leaf shadow-sm">
-              <Sprout className="h-4 w-4" /> Due-diligence support for regulated commodities
+            <p className="eyebrow mb-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium text-harbor">
+              <Sprout className="h-4 w-4 text-leaf" /> Due-diligence support for regulated commodities
             </p>
-            <h1 className="max-w-4xl text-5xl font-semibold leading-tight tracking-normal sm:text-6xl">Create buyer-ready EUDR evidence packs in minutes</h1>
+            <h1 className="max-w-4xl text-5xl font-semibold leading-tight tracking-normal sm:text-6xl">Evidence packs for EUDR teams who cannot afford messy handoffs</h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-ink/70">
-              Collect geolocation, supplier declarations, product records, and due-diligence documents in one shareable packet for importers and suppliers.
+              Collect geolocation, supplier declarations, product records, and due-diligence documents in a workflow that feels built for importer review, not demo screenshots.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <a href="/login" className="accent-band inline-flex items-center gap-2 rounded-md px-5 py-3 font-medium text-ink shadow-soft">
+              <a href="/login" className="btn-primary inline-flex items-center gap-2 rounded-md px-5 py-3 font-medium">
                 Create free proof pack <ArrowRight className="h-4 w-4" />
               </a>
-              <a href="#how" onClick={scrollToHow} className="inline-flex items-center rounded-md border border-ink/15 px-5 py-3 font-medium">How it works</a>
+              <a href="#how" onClick={scrollToHow} className="btn-quiet inline-flex items-center rounded-md px-5 py-3 font-medium">How it works</a>
             </div>
           </div>
-          <div className="float-soft rounded-lg border border-ink/10 bg-white/95 p-5 shadow-soft">
+          <div className="hero-visual float-soft rounded-lg p-5">
             <div className="mb-4 flex items-center justify-between">
-              <span className="text-sm font-medium text-ink/60">Proof Pack Summary</span>
-              <span className="pulse-soft rounded-full bg-moss/15 px-3 py-1 text-xs font-semibold text-leaf">78% ready</span>
+              <span className="text-sm font-medium text-ink/60">Importer review packet</span>
+              <span className="pulse-soft rounded-full bg-harbor/10 px-3 py-1 text-xs font-semibold text-harbor">78% ready</span>
             </div>
             <div className="space-y-3">
               <div className="summary-meter h-2 rounded-full" />
               {["Supplier declaration", "Plot coordinates", "Land-use evidence", "Risk notes"].map((item, index) => (
-                <div key={item} className="flex items-center justify-between rounded-md border border-steel/70 p-3">
+                <div key={item} className="audit-row flex items-center justify-between rounded-md border border-steel/70 bg-white/70 p-3">
                   <span className="flex items-center gap-2"><Check className="h-4 w-4 text-leaf" /> {item}</span>
                   <span className={index === 3 ? "text-clay" : "text-leaf"}>{index === 3 ? "Review" : "Ready"}</span>
                 </div>
@@ -288,22 +304,22 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
       )}
       <section className="mx-auto max-w-7xl px-5 py-10">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {["coffee", "cocoa", "wood", "rubber", "soy", "cattle", "palm oil"].map((item) => (
-            <div key={item} className="lift-card rounded-lg border border-ink/10 bg-white/95 p-4">
-              <Layers3 className="mb-3 h-5 w-5 text-clay" />
-              <h3 className="font-semibold capitalize">{item}</h3>
-              <p className="mt-1 text-sm text-ink/65">Evidence packet workflows for common EUDR readiness records.</p>
+          {sectorCards.map((item) => (
+            <div key={item.name} className="commodity-card rounded-lg p-4" style={{ "--accent": item.accent } as React.CSSProperties}>
+              <Layers3 className="mb-3 h-5 w-5 text-harbor" />
+              <h3 className="font-semibold capitalize">{item.name}</h3>
+              <p className="mt-1 text-sm leading-6 text-ink/65">{item.detail}</p>
             </div>
           ))}
         </div>
       </section>
       <section id="how" className="scroll-mt-6 bg-white/90 py-14">
         <div className="mx-auto grid max-w-7xl gap-4 px-5 md:grid-cols-3">
-          {["Collect", "Verify", "Export/share"].map((step, index) => (
-            <div key={step} className="lift-card border-l-4 border-leaf bg-flax p-5">
+          {workflowSteps.map((step, index) => (
+            <div key={step.title} className="signal-card rounded-lg p-5">
               <span className="text-sm font-semibold text-clay">0{index + 1}</span>
-              <h2 className="mt-2 text-xl font-semibold">{step}</h2>
-              <p className="mt-2 text-ink/65">Guide importers and suppliers from missing fields to buyer-ready documentation.</p>
+              <h2 className="mt-2 text-xl font-semibold">{step.title}</h2>
+              <p className="mt-2 leading-6 text-ink/65">{step.detail}</p>
             </div>
           ))}
         </div>
@@ -312,18 +328,18 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm font-semibold uppercase tracking-normal text-clay">EUR launch pricing</p>
-            <h2 className="mt-2 text-3xl font-semibold">EUDR compliance without an ESG platform rollout</h2>
+            <h2 className="mt-2 text-3xl font-semibold">Launch pricing for focused EUDR evidence work</h2>
             <p className="mt-3 max-w-2xl text-ink/65">
-              Start self-serve, invite suppliers, and export buyer-ready evidence bundles without waiting for an enterprise implementation.
+              Clear EUR pricing for small teams, recurring importer workflows, and consultants managing multiple evidence packs.
             </p>
           </div>
-          <a href="/login" className="accent-band inline-flex items-center gap-2 rounded-md px-5 py-3 font-medium text-ink shadow-soft">
+          <a href="/login" className="btn-primary inline-flex items-center gap-2 rounded-md px-5 py-3 font-medium">
             Start with Growth <ArrowRight className="h-4 w-4" />
           </a>
         </div>
         <div className="mt-7 grid gap-4 lg:grid-cols-3">
           {tiers.map((tier) => (
-            <div key={tier.name} className={`lift-card rounded-lg border bg-white/95 p-5 ${tier.highlighted ? "border-leaf shadow-soft" : "border-ink/10"}`}>
+            <div key={tier.name} className={`price-card rounded-lg p-5 ${tier.highlighted ? "is-featured" : ""}`}>
               <div className="flex items-start justify-between gap-3">
                 <h3 className="text-lg font-semibold">{tier.name}</h3>
                 {tier.highlighted && <span className="rounded-full bg-leaf/10 px-3 py-1 text-xs font-semibold text-leaf">Best fit</span>}
@@ -338,7 +354,7 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
                   </li>
                 ))}
               </ul>
-              <button type="button" onClick={() => openCheckout(tier.planId)} disabled={checkoutLoading === tier.planId} className={`mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-3 font-medium ${tier.highlighted ? "bg-leaf text-white" : "border border-ink/15 text-ink"}`}>
+              <button type="button" onClick={() => openCheckout(tier.planId)} disabled={checkoutLoading === tier.planId} className={`mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-3 font-medium ${tier.highlighted ? "btn-primary" : "btn-quiet"}`}>
                 {checkoutLoading === tier.planId ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
                 {paddle ? "Subscribe with Paddle" : "Log in to subscribe"}
               </button>
@@ -347,18 +363,18 @@ function LandingPage({ pricingOnly = false }: { pricingOnly?: boolean }) {
         </div>
         {checkoutMessage && <p className="mt-4 rounded-md border border-clay/25 bg-white px-4 py-3 text-sm text-clay">{checkoutMessage}</p>}
         <div className="mt-5 grid gap-4 lg:grid-cols-3">
-          <div className="lift-card rounded-lg border border-ink/10 bg-white/95 p-5">
+          <div className="price-card rounded-lg p-5">
             <h3 className="font-semibold">Pay-as-you-go</h3>
             <p className="mt-2 text-sm text-ink/65">For one-off needs and seasonal EUDR work.</p>
             <p className="mt-4 text-2xl font-semibold">&euro;99<span className="text-sm font-medium text-ink/55"> single proof pack</span></p>
             <p className="mt-2 text-sm text-ink/65">Extra active proof packs are &euro;25 each.</p>
           </div>
-          <div className="lift-card rounded-lg border border-ink/10 bg-white/95 p-5">
+          <div className="price-card rounded-lg p-5">
             <h3 className="font-semibold">Enterprise</h3>
             <p className="mt-2 text-sm text-ink/65">For SSO, API access, custom retention, dedicated onboarding, and future ERP or TRACES workflows.</p>
             <p className="mt-4 text-2xl font-semibold">From &euro;1,000<span className="text-sm font-medium text-ink/55">/mo</span></p>
           </div>
-          <div className="lift-card rounded-lg border border-ink/10 bg-flax p-5">
+          <div className="signal-card rounded-lg p-5">
             <h3 className="font-semibold">Launch positioning</h3>
             <p className="mt-2 text-sm leading-6 text-ink/65">
               Built for SMEs, suppliers, and consultants who need audit-ready evidence packs before they need a full ESG operating system.
@@ -440,7 +456,7 @@ function LoginPage() {
         <label className="mt-4 block text-sm font-medium">Password</label>
         <input value={password} onChange={(event) => setPassword(event.target.value)} className="mt-2 w-full rounded-md border border-ink/15 px-3 py-3" type="password" minLength={12} autoComplete="current-password" />
         {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
-        <button className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-leaf px-4 py-3 font-medium text-white" disabled={loading}>
+        <button className="btn-primary mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-3 font-medium" disabled={loading}>
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Continue
         </button>
       </form>
@@ -471,7 +487,7 @@ function VerifyEmailPage() {
         {ok ? <BadgeCheck className="h-8 w-8 text-leaf" /> : <ShieldCheck className="h-8 w-8 text-leaf" />}
         <h1 className="mt-4 text-2xl font-semibold">Email verification</h1>
         <p className="mt-2 text-sm text-ink/65">{message}</p>
-        <a href="/app" className="mt-5 inline-flex rounded-md bg-leaf px-4 py-3 text-white">Go to workspace</a>
+        <a href="/app" className="btn-primary mt-5 inline-flex rounded-md px-4 py-3">Go to workspace</a>
       </div>
     </main>
   );
@@ -551,11 +567,11 @@ function Dashboard() {
       )}
       <div className="grid gap-6 xl:grid-cols-[360px_1fr]">
         <aside>
-          <div className="rounded-lg border border-ink/10 bg-white p-5">
-            <p className="text-sm text-ink/55">{me?.organization.name}</p>
+          <div className="workspace-card rounded-lg p-5">
+            <p className="text-sm font-medium text-harbor">{me?.organization.name}</p>
             <h1 className="mt-1 text-2xl font-semibold">Evidence workspace</h1>
             {me && <PlanUsage billing={me.billing} />}
-            <button onClick={createPack} disabled={Boolean(me && !me.billing.canCreateProofPack)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-leaf px-4 py-3 text-white disabled:cursor-not-allowed disabled:bg-ink/30">
+            <button onClick={createPack} disabled={Boolean(me && !me.billing.canCreateProofPack)} className="btn-primary mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-3 disabled:cursor-not-allowed disabled:bg-ink/30 disabled:shadow-none">
               <PackagePlus className="h-4 w-4" /> {me && !me.billing.canCreateProofPack ? "Limit reached" : "New proof pack"}
             </button>
             {actionMessage && <p className="mt-3 text-sm text-clay">{actionMessage}</p>}
@@ -566,7 +582,7 @@ function Dashboard() {
           </div>
           <div className="mt-4 space-y-3">
             {packs.length === 0 ? <EmptyState /> : packs.map((pack) => (
-              <button key={pack.id} onClick={() => setSelectedId(pack.id)} className={`w-full rounded-lg border p-4 text-left ${selectedId === pack.id ? "border-leaf bg-white shadow-soft" : "border-ink/10 bg-white/70"}`}>
+              <button key={pack.id} onClick={() => setSelectedId(pack.id)} className={`pack-card w-full rounded-lg border p-4 text-left ${selectedId === pack.id ? "is-selected border-harbor bg-white shadow-soft" : "border-ink/10 bg-white/78"}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="font-semibold">{pack.title}</h3>
@@ -589,13 +605,13 @@ function Dashboard() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-flax text-ink">
+    <div className="workspace-shell min-h-screen text-ink">
       <div className="grid min-h-screen lg:grid-cols-[230px_1fr]">
-        <aside className="border-r border-ink/10 bg-white p-5">
-          <a className="flex items-center gap-2 font-semibold" href="/"><ShieldCheck className="h-6 w-6 text-leaf" /> ProofPack</a>
+        <aside className="side-rail p-5">
+          <a className="flex items-center gap-2 font-semibold" href="/"><span className="brand-mark"><ShieldCheck className="h-5 w-5" /></span> ProofPack</a>
           <nav className="mt-8 space-y-2 text-sm">
-            <a className="flex items-center gap-2 rounded-md bg-flax px-3 py-2" href="/app"><BarChart3 className="h-4 w-4" /> Dashboard</a>
-            <a className="flex items-center gap-2 rounded-md px-3 py-2 text-ink/65" href="/"><Globe2 className="h-4 w-4" /> Landing</a>
+            <a className="flex items-center gap-2 rounded-md bg-white/12 px-3 py-2" href="/app"><BarChart3 className="h-4 w-4" /> Dashboard</a>
+            <a className="flex items-center gap-2 rounded-md px-3 py-2 text-white/68" href="/"><Globe2 className="h-4 w-4" /> Landing</a>
           </nav>
         </aside>
         <main className="p-5 lg:p-8">{children}</main>
@@ -619,7 +635,7 @@ function PackEditor({ pack, onChanged }: { pack: ProofPack; onChanged: () => Pro
 
   return (
     <div className="space-y-5">
-      <div className="rounded-lg border border-ink/10 bg-white p-5">
+      <div className="workspace-card rounded-lg p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-3"><h2 className="text-2xl font-semibold">{pack.title}</h2><StatusBadge status={pack.status} /></div>
@@ -628,7 +644,7 @@ function PackEditor({ pack, onChanged }: { pack: ProofPack; onChanged: () => Pro
           <div className="flex flex-wrap gap-2">
             <button onClick={() => patch({ status: "buyer_ready" })} className="rounded-md border border-ink/15 px-3 py-2 text-sm">Mark buyer ready</button>
             <a href={`/api/proof-packs/${pack.id}/export`} className="rounded-md bg-ink px-3 py-2 text-sm text-white">Download JSON</a>
-            <a href={`/api/proof-packs/${pack.id}/zip-export`} className="rounded-md bg-leaf px-3 py-2 text-sm text-white">Download ZIP</a>
+            <a href={`/api/proof-packs/${pack.id}/zip-export`} className="btn-primary rounded-md px-3 py-2 text-sm">Download ZIP</a>
           </div>
         </div>
         <Progress value={pack.readiness.percentage} />
@@ -640,7 +656,7 @@ function PackEditor({ pack, onChanged }: { pack: ProofPack; onChanged: () => Pro
       </div>
       <div className="flex gap-2 overflow-x-auto">
         {["buyer", "product", "supplier", "plots", "documents", "risk", "share"].map((item) => (
-          <button key={item} onClick={() => setTab(item)} className={`rounded-md px-3 py-2 text-sm capitalize ${tab === item ? "bg-leaf text-white" : "bg-white text-ink/70"}`}>{item}</button>
+          <button key={item} onClick={() => setTab(item)} className={`tab-button rounded-md px-3 py-2 text-sm capitalize ${tab === item ? "is-active" : "text-ink/70"}`}>{item}</button>
         ))}
       </div>
       {tab === "buyer" && <FieldGrid fields={[
@@ -702,7 +718,7 @@ function PlotsPanel({ pack, onChanged }: { pack: ProofPack; onChanged: () => Pro
     <Panel>
       <form onSubmit={submit} className="grid gap-4 md:grid-cols-2">
         {Object.keys(plot).map((key) => <TextField key={key} label={labelize(key)} value={plot[key as keyof typeof plot]} onChange={(value) => setPlot((current) => ({ ...current, [key]: value }))} />)}
-        <button className="rounded-md bg-leaf px-4 py-3 text-white md:self-end">Add plot</button>
+        <button className="btn-primary rounded-md px-4 py-3 md:self-end">Add plot</button>
       </form>
       <div className="mt-5 overflow-hidden rounded-md border border-ink/10">
         <div className="grid grid-cols-4 bg-flax p-3 text-sm font-medium"><span>Plot</span><span>Producer</span><span>Latitude</span><span>Longitude</span></div>
@@ -729,12 +745,12 @@ function PlotMapPreview({ plots }: { plots: Plot[] }) {
     y: 88 - ((Number(plot.latitude) - minLat) / latSpan) * 76,
   });
   return (
-    <div className="mt-4 overflow-hidden rounded-md border border-ink/10 bg-flax">
+    <div className="map-preview mt-4 overflow-hidden rounded-md border border-ink/10">
       <div className="flex items-center justify-between gap-3 border-b border-ink/10 px-4 py-3 text-sm">
         <span className="inline-flex items-center gap-2 font-medium"><MapPin className="h-4 w-4 text-leaf" /> Coordinate coverage</span>
         <span className="text-ink/55">{validPlots.length} plot{validPlots.length === 1 ? "" : "s"}</span>
       </div>
-      <svg viewBox="0 0 100 100" className="h-56 w-full bg-[radial-gradient(circle_at_20%_20%,rgba(96,146,118,0.18),transparent_26%),linear-gradient(135deg,#f5efe3,#dce8e0)]" role="img" aria-label="Plot coordinate preview">
+      <svg viewBox="0 0 100 100" className="h-56 w-full" role="img" aria-label="Plot coordinate preview">
         <path d="M8 78 C24 64 33 72 46 55 S72 31 92 22" fill="none" stroke="rgba(45,70,55,0.24)" strokeWidth="2" />
         <path d="M4 32 C18 28 32 38 46 30 S76 18 96 34" fill="none" stroke="rgba(45,70,55,0.16)" strokeWidth="1.5" />
         {validPlots.map((plot, index) => {
@@ -763,7 +779,7 @@ function DocumentsPanel({ pack, onChanged }: { pack: ProofPack; onChanged: () =>
         <SelectField label="Document type" value={type} options={docTypes.map(([value]) => value)} onChange={setType} />
         <TextField label="Notes" value={notes} onChange={setNotes} />
         <label className="block text-sm font-medium">File<input name="file" type="file" className="mt-2 block w-full text-sm" required /></label>
-        <button className="inline-flex items-center justify-center gap-2 rounded-md bg-leaf px-4 py-3 text-white md:col-span-3"><Upload className="h-4 w-4" /> Upload</button>
+        <button className="btn-primary inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 md:col-span-3"><Upload className="h-4 w-4" /> Upload</button>
       </form>
       <div className="mt-5 space-y-2">
         {pack.documents.map((document) => (
@@ -835,7 +851,7 @@ function SupplierPortal({ token }: { token: string }) {
           ))}
           <label className="flex items-center gap-3 rounded-md border border-ink/10 p-3"><input type="checkbox" onChange={(event) => setDraft((current) => ({ ...current, supplier_declaration_confirmed: event.target.checked }))} /> Supplier declaration confirmed</label>
         </div>
-        <button onClick={save} className="mt-5 rounded-md bg-leaf px-4 py-3 text-white">Save supplier details</button>
+        <button onClick={save} className="btn-primary mt-5 rounded-md px-4 py-3">Save supplier details</button>
       </Panel>
       <SupplierDocuments token={token} documents={data.documents} onChanged={reload} />
     </PublicFrame>
@@ -861,7 +877,7 @@ function SupplierDocuments({ token, documents, onChanged }: { token: string; doc
         <SelectField label="Document type" value={type} options={docTypes.map(([value]) => value)} onChange={setType} />
         <TextField label="Notes" value={notes} onChange={setNotes} />
         <label className="block text-sm font-medium">File<input name="file" type="file" className="mt-2 block w-full text-sm" required /></label>
-        <button className="inline-flex items-center justify-center gap-2 rounded-md bg-leaf px-4 py-3 text-white md:col-span-3"><Upload className="h-4 w-4" /> Upload</button>
+        <button className="btn-primary inline-flex items-center justify-center gap-2 rounded-md px-4 py-3 md:col-span-3"><Upload className="h-4 w-4" /> Upload</button>
       </form>
       <div className="mt-5 space-y-2">
         {documents.map((document) => <div key={document.id} className="rounded-md border border-ink/10 p-3 text-sm">{document.original_filename}</div>)}
@@ -908,11 +924,11 @@ function SelectField({ label, value, options, onChange }: { label: string; value
 }
 
 function Panel({ children }: { children: React.ReactNode }) {
-  return <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-sm">{children}</section>;
+  return <section className="workspace-card rounded-lg p-5">{children}</section>;
 }
 
 function SaveButton({ saving, onClick }: { saving: boolean; onClick: () => void }) {
-  return <button onClick={onClick} disabled={saving} className="mt-5 inline-flex items-center gap-2 rounded-md bg-leaf px-4 py-3 text-white">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Save changes</button>;
+  return <button onClick={onClick} disabled={saving} className="btn-primary mt-5 inline-flex items-center gap-2 rounded-md px-4 py-3">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Save changes</button>;
 }
 
 function LinkBox({ title, url, onGenerate }: { title: string; url: string; onGenerate: () => void }) {
@@ -920,7 +936,7 @@ function LinkBox({ title, url, onGenerate }: { title: string; url: string; onGen
 }
 
 function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
-  return <div className="rounded-lg border border-ink/10 bg-white p-4"><span className="block h-5 w-5 text-leaf">{icon}</span><p className="mt-3 text-2xl font-semibold">{value}</p><p className="text-sm text-ink/55">{label}</p></div>;
+  return <div className="workspace-card rounded-lg p-4"><span className="block h-5 w-5 text-harbor">{icon}</span><p className="mt-3 text-2xl font-semibold">{value}</p><p className="text-sm text-ink/55">{label}</p></div>;
 }
 function TeamPanel({ me, onChanged }: { me: MeResponse; onChanged: () => Promise<void> }) {
   const [email, setEmail] = useState("");
@@ -991,11 +1007,11 @@ function PlanUsage({ billing }: { billing: MeResponse["billing"] }) {
 }
 
 function StatusBadge({ status }: { status: Status }) {
-  return <span className="rounded-full bg-leaf/10 px-2.5 py-1 text-xs font-semibold text-leaf">{labelize(status)}</span>;
+  return <span className={`status-badge rounded-full px-2.5 py-1 text-xs font-semibold ${status.replaceAll("_", "-")}`}>{labelize(status)}</span>;
 }
 
 function Progress({ value }: { value: number }) {
-  return <div className="mt-4"><div className="flex justify-between text-xs text-ink/60"><span>Readiness</span><span>{value}%</span></div><div className="mt-2 h-2 rounded-full bg-steel"><div className="h-2 rounded-full bg-leaf" style={{ width: `${value}%` }} /></div></div>;
+  return <div className="mt-4"><div className="flex justify-between text-xs text-ink/60"><span>Readiness</span><span>{value}%</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-steel"><div className="progress-fill h-2 rounded-full" style={{ width: `${value}%` }} /></div></div>;
 }
 
 function LoadingState() {
@@ -1007,7 +1023,7 @@ function ErrorState({ message }: { message: string }) {
 }
 
 function EmptyState() {
-  return <div className="rounded-lg border border-dashed border-ink/20 bg-white p-8 text-center text-ink/60"><Box className="mx-auto mb-3 h-8 w-8" /> No proof packs yet.</div>;
+  return <div className="workspace-card rounded-lg border-dashed p-8 text-center text-ink/60"><Box className="mx-auto mb-3 h-8 w-8 text-harbor" /> No proof packs yet.</div>;
 }
 
 function FeedbackWidget() {
@@ -1064,7 +1080,7 @@ function FeedbackWidget() {
           </label>
           <div className="mt-4 flex items-center justify-between gap-3">
             <p className="text-sm text-ink/60">{status}</p>
-            <button className="inline-flex items-center gap-2 rounded-md bg-leaf px-4 py-2 font-medium text-white disabled:bg-ink/30" disabled={submitting || message.trim().length < 3}>
+            <button className="btn-primary inline-flex items-center gap-2 rounded-md px-4 py-2 font-medium disabled:bg-ink/30" disabled={submitting || message.trim().length < 3}>
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Send
             </button>
           </div>
